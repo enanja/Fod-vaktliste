@@ -1,0 +1,289 @@
+.container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+  padding-bottom: 20px;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.header h1 {
+  margin: 0 0 8px 0;
+  color: #1a202c;
+}
+
+.header p {
+  margin: 0;
+  color: #718096;
+}
+
+.nav {
+  display: flex;
+  gap: 12px;
+}
+
+.button {
+  padding: 10px 20px;
+  background: #3182ce;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.button:hover:not(:disabled) {
+  background: #2c5282;
+}
+
+.button:disabled {
+  background: #a0aec0;
+  cursor: not-allowed;
+}
+
+.buttonSecondary {
+  padding: 10px 20px;
+  background: #e2e8f0;
+  color: #2d3748;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.buttonSecondary:hover:not(:disabled) {
+  background: #cbd5e0;
+}
+
+.buttonSecondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.shiftsContainer h2 {
+  margin: 0 0 20px 0;
+  color: #1a202c;
+}
+
+.empty {
+  text-align: center;
+  padding: 40px;
+  color: #718096;
+}
+
+.shiftsList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.shiftCard {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.shiftHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.shiftHeader h3 {
+  margin: 0 0 8px 0;
+  font-size: 18px;
+  color: #1a202c;
+}
+
+.date {
+  margin: 0;
+  color: #4a5568;
+  font-size: 14px;
+}
+
+.shiftStats {
+  text-align: right;
+}
+
+.shiftStats span {
+  display: inline-block;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.available {
+  background: #c6f6d5;
+  color: #22543d;
+}
+
+.full {
+  background: #fed7d7;
+  color: #742a2a;
+}
+
+.signupsList {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.toggleButton {
+  background: #edf2f7;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #2d3748;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+
+.toggleButton:hover {
+  background: #e2e8f0;
+}
+
+.volunteersTable {
+  margin-top: 12px;
+  overflow-x: auto;
+}
+
+.volunteersTable table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.volunteersTable th {
+  background: #f7fafc;
+  padding: 12px;
+  text-align: left;
+  font-weight: 600;
+  color: #2d3748;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.volunteersTable td {
+  padding: 12px;
+  border-bottom: 1px solid #e2e8f0;
+  color: #4a5568;
+}
+
+.volunteersTable tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.volunteersTable tbody tr:hover {
+  background: #f7fafc;
+}
+
+/* Modal */
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.modalContent {
+  background: white;
+  padding: 32px;
+  border-radius: 12px;
+  max-width: 600px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+}
+
+.modalContent h2 {
+  margin: 0 0 24px 0;
+  color: #1a202c;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field label {
+  font-weight: 500;
+  color: #2d3748;
+  font-size: 14px;
+}
+
+.field input,
+.field textarea {
+  padding: 10px 12px;
+  border: 1px solid #cbd5e0;
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.field input:focus,
+.field textarea:focus {
+  outline: none;
+  border-color: #4299e1;
+}
+
+.field input:disabled,
+.field textarea:disabled {
+  background: #f7fafc;
+  cursor: not-allowed;
+}
+
+.field textarea {
+  resize: vertical;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.modalButtons {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.error {
+  padding: 12px;
+  background: #fff5f5;
+  border: 1px solid #fc8181;
+  border-radius: 6px;
+  color: #c53030;
+  font-size: 14px;
+  margin-bottom: 16px;
+}
