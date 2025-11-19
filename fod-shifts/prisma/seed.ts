@@ -6,6 +6,7 @@ const prisma = new PrismaClient()
 
 async function main() {
   // Slett eksisterende data
+  await prisma.passwordResetToken.deleteMany()
   await prisma.signup.deleteMany()
   await prisma.shift.deleteMany()
   await prisma.user.deleteMany()

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/session'
+import { sendAdminNotificationEmail } from '@/lib/email'
 
 // POST - Meld seg på et skift
 export async function POST(request: Request) {
@@ -79,7 +80,7 @@ export async function POST(request: Request) {
       },
     })
 
-    // Send epost-notifikasjon til admin (simulert)
+    // Send epost-notifikasjon til admin (simulert/ekte)
     await sendAdminNotificationEmail({
       volunteerName: signup.user.name,
       volunteerEmail: signup.user.email,
@@ -142,110 +143,5 @@ export async function GET() {
       { error: 'Kunne ikke hente påmeldinger' },
       { status: 500 }
     )
-  }
-}
-
-// Epost-funksjon (ekte sending eller simulert)
-async function sendAdminNotificationEmail(data: {
-  volunteerName: string
-  volunteerEmail: string
-  shiftTitle: string
-  shiftDate: Date
-  comment: string
-}) {
-  const enableEmail = process.env.ENABLE_EMAIL === 'true'
-  
-  // Alltid log til konsollen
-  console.log('📧 === EPOST TIL ADMIN ===')
-  console.log('Til:', process.env.ADMIN_EMAIL || 'admin@fod.local')
-  console.log('Emne: Ny påmelding til skift')
-  console.log('---')
-  console.log(`En frivillig har meldt seg på et skift!`)
-  console.log('')
-  console.log(`Frivillig: ${data.volunteerName}`)
-  console.log(`Epost: ${data.volunteerEmail}`)
-  console.log(`Skift: ${data.shiftTitle}`)
-  console.log(`Dato: ${data.shiftDate.toLocaleDateString('no-NO')}`)
-  console.log(`Kommentar: ${data.comment}`)
-  console.log('=========================')
-  
-  // Send ekte epost hvis aktivert
-  if (enableEmail) {
-    try {
-      const nodemailer = require('nodemailer')
-      
-      // Opprett transporter med SMTP-innstillinger
-      const transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST,
-        port: parseInt(process.env.SMTP_PORT || '587'),
-        secure: false, // true for 465, false for andre porter
-        auth: {
-          user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASS,
-        },
-      })
-
-      // Send epost
-      await transporter.sendMail({
-        from: process.env.EMAIL_FROM,
-        to: process.env.ADMIN_EMAIL,
-        subject: `Ny påmelding til skift: ${data.shiftTitle}`,
-        html: `
-          <h2>Ny påmelding til skift</h2>
-          <p>En frivillig har meldt seg på et skift!</p>
-          
-          <h3>Frivillig informasjon:</h3>
-          <ul>
-            <li><strong>Navn:</strong> ${data.volunteerName}</li>
-            <li><strong>Epost:</strong> ${data.volunteerEmail}</li>
-          </ul>
-          
-          <h3>Skift informasjon:</h3>
-          <ul>
-            <li><strong>Skift:</strong> ${data.shiftTitle}</li>
-            <li><strong>Dato:</strong> ${data.shiftDate.toLocaleDateString('no-NO', {
-              weekday: 'long',
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric',
-            })}</li>
-          </ul>
-          
-          <h3>Kommentar fra frivillig:</h3>
-          <p>${data.comment}</p>
-          
-          <hr>
-          <p style="color: #666; font-size: 12px;">
-            Dette er en automatisk melding fra FOD Frivillig System.
-          </p>
-        `,
-        text: `
-Ny påmelding til skift
-
-En frivillig har meldt seg på et skift!
-
-Frivillig informasjon:
-- Navn: ${data.volunteerName}
-- Epost: ${data.volunteerEmail}
-
-Skift informasjon:
-- Skift: ${data.shiftTitle}
-- Dato: ${data.shiftDate.toLocaleDateString('no-NO')}
-
-Kommentar fra frivillig:
-${data.comment}
-
----
-Dette er en automatisk melding fra FOD Frivillig System.
-        `,
-      })
-      
-      console.log('✅ Epost sendt til admin!')
-    } catch (error) {
-      console.error('❌ Feil ved sending av epost:', error)
-      // Ikke kast feil - la påmeldingen fortsatt gå gjennom selv om epost feiler
-    }
-  } else {
-    console.log('ℹ️  Epostsending er deaktivert (ENABLE_EMAIL=false)')
   }
 }

@@ -69,6 +69,10 @@ export default function LoginPage() {
         </form>
         
         <p className={styles.link}>
+          Glemt passordet? <Link href="/forgot-password">Tilbakestill det her</Link>
+        </p>
+
+        <p className={styles.link}>
           Har du ikke en konto? <Link href="/register">Registrer deg her</Link>
         </p>
 

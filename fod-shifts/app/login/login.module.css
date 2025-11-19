@@ -95,6 +95,15 @@
   font-size: 14px;
 }
 
+.success {
+  padding: 12px;
+  background: #f0fff4;
+  border: 1px solid #9ae6b4;
+  border-radius: 6px;
+  color: #276749;
+  font-size: 14px;
+}
+
 .link {
   text-align: center;
   margin-top: 20px;

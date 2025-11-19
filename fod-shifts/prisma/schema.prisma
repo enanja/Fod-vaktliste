@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -19,6 +19,7 @@ model User {
   createdAt DateTime @default(now())
   
   signups   Signup[]
+  passwordResetTokens PasswordResetToken[]
 }
 
 model Shift {
@@ -45,4 +46,14 @@ model Signup {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   
   @@unique([shiftId, userId]) // En bruker kan kun melde seg på et skift én gang
+}
+
+model PasswordResetToken {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
 }
