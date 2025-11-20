@@ -102,19 +102,19 @@ fod-shifts/
 │   ├── prisma.ts          # Prisma client singleton
 │   └── session.ts         # Session-håndtering med iron-session
 ├── prisma/
-│   ├── schema.prisma      # Datamodeller (User, Shift, Signup)
+│   ├── schema.prisma      # Datamodeller (User, Shift, Signup, PasswordResetToken)
 │   ├── seed.ts            # Seed-script
-│   └── dev.db             # SQLite database (genereres automatisk)
+│   └── migrations/        # Prisma migrasjoner
 └── package.json
 ```
 
 ## Datamodeller
 
 ### User
-- id, name, email, password (hashed), role (admin/volunteer)
+- id, name, email, hashedPassword, role (ADMIN/FRIVILLIG), createdAt
 
 ### Shift
-- id, title, description, date, startTime, endTime, maxVolunteers
+- id, title, description, notes, date, type (MORGEN/KVELD), startTime, endTime, maxVolunteers, createdAt
 
 ### Signup
 - id, shiftId, userId, comment, createdAt

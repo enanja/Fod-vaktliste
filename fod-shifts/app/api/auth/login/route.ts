@@ -1,3 +1,4 @@
+export const runtime = "nodejs";
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcrypt'
@@ -28,7 +29,7 @@ export async function POST(request: Request) {
     }
 
     // Sjekk passord
-    const passwordMatch = await bcrypt.compare(password, user.password)
+    const passwordMatch = await bcrypt.compare(password, user.hashedPassword)
 
     if (!passwordMatch) {
       return NextResponse.json(
@@ -42,7 +43,7 @@ export async function POST(request: Request) {
     session.userId = user.id
     session.email = user.email
     session.name = user.name
-    session.role = user.role as 'admin' | 'volunteer'
+    session.role = user.role as 'ADMIN' | 'FRIVILLIG'
     session.isLoggedIn = true
     await session.save()
 

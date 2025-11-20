@@ -29,7 +29,7 @@ export default function MyShiftsPage() {
   useEffect(() => {
     if (!isLoading && !user) {
       router.push('/login')
-    } else if (user?.role === 'admin') {
+    } else if (user?.role === 'ADMIN') {
       router.push('/admin')
     }
   }, [user, isLoading, router])

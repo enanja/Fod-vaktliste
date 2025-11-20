@@ -18,8 +18,8 @@ async function main() {
     data: {
       name: 'Admin FOD',
       email: 'admin@fod.local',
-      password: hashedPassword,
-      role: 'admin',
+      hashedPassword,
+      role: 'ADMIN',
     },
   })
 
@@ -30,7 +30,9 @@ async function main() {
     data: {
       title: 'Mating av hunder',
       description: 'Hjelp til med morgenmatingen av hundene',
+      notes: 'Morgenskift: mating av hunder og rydding av kennelen.',
       date: new Date('2025-11-25T08:00:00'),
+      type: 'MORGEN',
       startTime: '08:00',
       endTime: '10:00',
       maxVolunteers: 3,
@@ -41,7 +43,9 @@ async function main() {
     data: {
       title: 'Rengjøring av kattebur',
       description: 'Rengjøring og vedlikehold av katteavdelingen',
+      notes: 'Kveldsskift: rengjøring av kattebur og påfyll av mat/vann.',
       date: new Date('2025-11-26T14:00:00'),
+      type: 'KVELD',
       startTime: '14:00',
       endTime: '16:00',
       maxVolunteers: 2,
@@ -52,7 +56,9 @@ async function main() {
     data: {
       title: 'Tur med hunder',
       description: 'Ta hundene med på tur i skogen',
+      notes: 'Morgenskift: luftetur for hunder og enkel trening.',
       date: new Date('2025-11-27T10:00:00'),
+      type: 'MORGEN',
       startTime: '10:00',
       endTime: '12:00',
       maxVolunteers: 4,

@@ -47,13 +47,13 @@ export default function AdminPage() {
   useEffect(() => {
     if (!isLoading && !user) {
       router.push('/login')
-    } else if (user && user.role !== 'admin') {
+    } else if (user && user.role !== 'ADMIN') {
       router.push('/shifts')
     }
   }, [user, isLoading, router])
 
   useEffect(() => {
-    if (user && user.role === 'admin') {
+    if (user && user.role === 'ADMIN') {
       fetchShifts()
     }
   }, [user])
@@ -110,7 +110,7 @@ export default function AdminPage() {
     return <div className={styles.container}>Laster...</div>
   }
 
-  if (user.role !== 'admin') {
+  if (user.role !== 'ADMIN') {
     return null
   }
 

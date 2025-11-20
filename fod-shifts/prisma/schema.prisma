@@ -10,12 +10,22 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum Role {
+  ADMIN
+  FRIVILLIG
+}
+
+enum ShiftType {
+  MORGEN
+  KVELD
+}
+
 model User {
   id        Int      @id @default(autoincrement())
   name      String
   email     String   @unique
-  password  String   // Hashed password
-  role      String   @default("volunteer") // "admin" or "volunteer"
+  hashedPassword String
+  role      Role     @default(FRIVILLIG)
   createdAt DateTime @default(now())
   
   signups   Signup[]
@@ -26,7 +36,9 @@ model Shift {
   id            Int      @id @default(autoincrement())
   title         String
   description   String?
+  notes         String?
   date          DateTime
+  type          ShiftType @default(MORGEN)
   startTime     String   // Format: "HH:MM"
   endTime       String   // Format: "HH:MM"
   maxVolunteers Int

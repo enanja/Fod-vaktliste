@@ -1,3 +1,4 @@
+export const runtime = "nodejs"
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcrypt'
@@ -34,8 +35,8 @@ export async function POST(request: Request) {
       data: {
         name,
         email,
-        password: hashedPassword,
-        role: 'volunteer', // Alle nye brukere er frivillige
+        hashedPassword,
+        role: 'FRIVILLIG', // Alle nye brukere er frivillige
       },
     })
 

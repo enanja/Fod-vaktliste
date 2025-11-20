@@ -1,3 +1,4 @@
+export const runtime = "nodejs"
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/session'
@@ -45,7 +46,7 @@ export async function POST(request: Request) {
   try {
     const session = await getSession()
 
-    if (!session.isLoggedIn || session.role !== 'admin') {
+    if (!session.isLoggedIn || session.role !== 'ADMIN') {
       return NextResponse.json(
         { error: 'Ikke autorisert' },
         { status: 403 }
@@ -70,7 +71,7 @@ export async function POST(request: Request) {
         date: new Date(date),
         startTime,
         endTime,
-        maxVolunteers: parseInt(maxVolunteers),
+        maxVolunteers: typeof maxVolunteers === 'number' ? maxVolunteers : parseInt(maxVolunteers, 10),
       },
     })
 

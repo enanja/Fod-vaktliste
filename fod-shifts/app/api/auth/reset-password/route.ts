@@ -1,3 +1,4 @@
+export const runtime = "nodejs"
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcrypt'
@@ -44,7 +45,7 @@ export async function POST(request: Request) {
     await prisma.$transaction([
       prisma.user.update({
         where: { id: resetToken.userId },
-        data: { password: hashedPassword },
+        data: { hashedPassword },
       }),
       prisma.passwordResetToken.update({
         where: { id: resetToken.id },

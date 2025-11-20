@@ -13,7 +13,7 @@ export default function Home() {
     if (!isLoading) {
       if (user) {
         // Redirect basert på rolle
-        if (user.role === 'admin') {
+        if (user.role === 'ADMIN') {
           router.push('/admin')
         } else {
           router.push('/shifts')

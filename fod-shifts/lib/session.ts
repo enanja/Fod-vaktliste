@@ -5,7 +5,7 @@ export interface SessionData {
   userId: number
   email: string
   name: string
-  role: 'admin' | 'volunteer'
+  role: 'ADMIN' | 'FRIVILLIG'
   isLoggedIn: boolean
 }
 
@@ -13,7 +13,7 @@ export const defaultSession: SessionData = {
   userId: 0,
   email: '',
   name: '',
-  role: 'volunteer',
+  role: 'FRIVILLIG',
   isLoggedIn: false,
 }
 
