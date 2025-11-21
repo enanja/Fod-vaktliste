@@ -17,7 +17,7 @@ interface AuthContextType {
   user: User | null
   isLoading: boolean
   login: (email: string, password: string) => Promise<void>
-  register: (name: string, email: string, password: string) => Promise<void>
+  register: (payload: { name: string; password: string; token: string; email: string }) => Promise<void>
   logout: () => Promise<void>
 }
 
@@ -65,11 +65,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(data.user)
   }
 
-  const register = async (name: string, email: string, password: string) => {
+  const register = async ({ name, password, token, email }: { name: string; password: string; token: string; email: string }) => {
     const response = await fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email, password }),
+      body: JSON.stringify({ name, password, token }),
     })
 
     const data = await response.json()
@@ -79,7 +79,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     // Automatisk innlogging etter registrering
-    await login(email, password)
+    const loginEmail = data?.user?.email ?? email
+    await login(loginEmail, password)
   }
 
   const logout = async () => {

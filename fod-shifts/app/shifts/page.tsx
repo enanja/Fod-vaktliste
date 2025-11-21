@@ -437,74 +437,57 @@ export default function ShiftsPage() {
                         </div>
 
                         {hasShifts ? (
-                          <div className={styles.calendarCellShifts}>
-                            {SHIFT_TYPES.map((shiftType) => {
+                          <div className={styles.calendarShiftList}>
+                            {SHIFT_TYPES.flatMap((shiftType) => {
                               const shiftGroup = dayShifts?.[shiftType] ?? []
 
                               if (shiftGroup.length === 0) {
-                                return null
+                                return []
                               }
 
-                              const totalShifts = shiftGroup.length
-                              const availableShifts = shiftGroup.filter(
-                                (item) => item.signupCount < item.maxVolunteers
-                              ).length
-                              const summaryText = `${totalShifts} skift · ${availableShifts} ledig${availableShifts === 1 ? '' : 'e'}`
+                              return shiftGroup.map((shift) => {
+                                const isFull = shift.signupCount >= shift.maxVolunteers
+                                const isSigned = isUserSignedUp(shift)
+                                const isWaitlisted = isUserWaitlisted(shift)
+                                const classNames = [styles.calendarShift]
 
-                              return (
-                                <div key={shiftType} className={styles.shiftGroup}>
-                                  <div className={styles.shiftGroupHeader}>
-                                    <span>{SHIFT_TYPE_LABELS[shiftType]}</span>
-                                    <span className={styles.shiftGroupSummary}>{summaryText}</span>
-                                  </div>
-                                  <div className={styles.calendarShiftList}>
-                                    {/* Render every overlapping shift as a compact badge so even busy slots stay readable. */}
-                                    {shiftGroup.map((shift) => {
-                                      const isFull = shift.signupCount >= shift.maxVolunteers
-                                      const isSigned = isUserSignedUp(shift)
-                                      const isWaitlisted = isUserWaitlisted(shift)
-                                      const classNames = [styles.calendarShift]
+                                if (isWaitlisted) {
+                                  classNames.push(styles.calendarShiftWaitlisted)
+                                } else if (isSigned) {
+                                  classNames.push(styles.calendarShiftMine)
+                                } else if (isFull) {
+                                  classNames.push(styles.calendarShiftFull)
+                                } else {
+                                  classNames.push(styles.calendarShiftAvailable)
+                                }
 
-                                      if (isWaitlisted) {
-                                        classNames.push(styles.calendarShiftWaitlisted)
-                                      } else if (isSigned) {
-                                        classNames.push(styles.calendarShiftMine)
-                                      } else if (isFull) {
-                                        classNames.push(styles.calendarShiftFull)
-                                      } else {
-                                        classNames.push(styles.calendarShiftAvailable)
-                                      }
-
-                                      return (
-                                        <button
-                                          key={shift.id}
-                                          type="button"
-                                          className={classNames.join(' ')}
-                                          onClick={() => openShiftDetails(shift)}
-                                          title={`${shift.title} · ${shift.startTime}–${shift.endTime} · ${shift.signupCount}/${shift.maxVolunteers} påmeldt`}
-                                        >
-                                          <span className={styles.shiftRow}>
-                                            <span className={styles.shiftTitle}>{shift.title}</span>
-                                            <span className={styles.shiftCount}>
-                                              {shift.signupCount}/{shift.maxVolunteers}
-                                            </span>
-                                          </span>
-                                          <span className={styles.shiftMeta}>
-                                            {shift.startTime}–{shift.endTime}
-                                            {isSigned
-                                              ? ' · Påmeldt'
-                                              : isWaitlisted
-                                                ? ' · Venteliste'
-                                                : isFull
-                                                  ? ' · Fullt'
-                                                  : ' · Ledig'}
-                                          </span>
-                                        </button>
-                                      )
-                                    })}
-                                  </div>
-                                </div>
-                              )
+                                return (
+                                  <button
+                                    key={shift.id}
+                                    type="button"
+                                    className={classNames.join(' ')}
+                                    onClick={() => openShiftDetails(shift)}
+                                    title={`${shift.title} · ${shift.startTime}–${shift.endTime} · ${shift.signupCount}/${shift.maxVolunteers} påmeldt`}
+                                  >
+                                    <span className={styles.shiftRow}>
+                                      <span className={styles.shiftTitle}>{shift.title}</span>
+                                      <span className={styles.shiftCount}>
+                                        {shift.signupCount}/{shift.maxVolunteers}
+                                      </span>
+                                    </span>
+                                    <span className={styles.shiftMeta}>
+                                      {shift.startTime}–{shift.endTime}
+                                      {isSigned
+                                        ? ' · Påmeldt'
+                                        : isWaitlisted
+                                          ? ' · Venteliste'
+                                          : isFull
+                                            ? ' · Fullt'
+                                            : ' · Ledig'}
+                                    </span>
+                                  </button>
+                                )
+                              })
                             })}
                           </div>
                         ) : null}

@@ -77,7 +77,7 @@ export default function LoginPage() {
         </p>
 
         <p className={styles.link}>
-          Har du ikke en konto? <Link href="/register">Registrer deg her</Link>
+          Har du fått invitasjon? Bruk lenken du mottok på e-post for å registrere deg.
         </p>
 
         <div className={styles.demo}>
