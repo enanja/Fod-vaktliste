@@ -62,7 +62,7 @@ interface FormState {
   type: ShiftTypeKey
 }
 
-type ShiftsByType = Partial<Record<ShiftTypeKey, Shift>>
+type ShiftsByType = Record<ShiftTypeKey, Shift[]>
 
 export default function AdminPage() {
   const { user, isLoading, logout } = useAuth()
@@ -130,12 +130,32 @@ export default function AdminPage() {
 
   const shiftsByDate = useMemo(() => {
     const map = new Map<string, ShiftsByType>()
+
     shifts.forEach((shift) => {
       const key = shift.date.slice(0, 10)
-      const entry = map.get(key) ?? {}
-      entry[shift.type] = shift
-      map.set(key, entry)
+
+      if (!map.has(key)) {
+        map.set(key, {
+          MORGEN: [],
+          KVELD: [],
+        })
+      }
+
+      map.get(key)![shift.type].push(shift)
     })
+
+    map.forEach((bucket) => {
+      SHIFT_TYPES.forEach((type) => {
+        bucket[type].sort((a, b) => {
+          const timeDiff = a.startTime.localeCompare(b.startTime)
+          if (timeDiff !== 0) {
+            return timeDiff
+          }
+          return a.id - b.id
+        })
+      })
+    })
+
     return map
   }, [shifts])
 
@@ -187,6 +207,10 @@ export default function AdminPage() {
 
   const capitalise = (value: string) =>
     value.length > 0 ? value[0].toUpperCase() + value.slice(1) : value
+
+  const openAdminShiftDetails = (shift: Shift) => {
+    setSelectedShift(shift)
+  }
 
   const renderSignupTable = (shift: Shift) => (
     <div className={styles.volunteersTable}>
@@ -526,43 +550,68 @@ export default function AdminPage() {
                         </div>
                         <div className={styles.calendarCellShifts}>
                           {SHIFT_TYPES.map((shiftType) => {
-                            const shift = dayShifts?.[shiftType] ?? null
-                            const isFull =
-                              shift !== null && shift.signupCount >= shift.maxVolunteers
-                            const classNames = [styles.calendarShift]
+                            const shiftGroup = dayShifts?.[shiftType] ?? []
 
-                            if (!shift) {
-                              classNames.push(styles.calendarShiftEmpty)
-                            } else if (isFull) {
-                              classNames.push(styles.calendarShiftFull)
-                            } else {
-                              classNames.push(styles.calendarShiftAvailable)
+                            if (shiftGroup.length === 0) {
+                              return (
+                                <div
+                                  key={shiftType}
+                                  className={`${styles.shiftGroup} ${styles.shiftGroupEmpty}`}
+                                >
+                                  <div className={styles.shiftGroupHeader}>
+                                    <span>{SHIFT_TYPE_LABELS[shiftType]}</span>
+                                    <span className={styles.shiftGroupSummary}>Ingen skift</span>
+                                  </div>
+                                  <div className={styles.calendarShiftPlaceholder}>Ingen skift planlagt</div>
+                                </div>
+                              )
                             }
 
+                            const totalShifts = shiftGroup.length
+                            const availableShifts = shiftGroup.filter(
+                              (item) => item.signupCount < item.maxVolunteers
+                            ).length
+                            const summaryText = `${totalShifts} skift · ${availableShifts} ledig${availableShifts === 1 ? '' : 'e'}`
+
                             return (
-                              <button
-                                key={shiftType}
-                                type="button"
-                                className={classNames.join(' ')}
-                                onClick={() => shift && setSelectedShift(shift)}
-                                disabled={!shift}
-                              >
-                                <span className={styles.shiftLabel}>
-                                  {SHIFT_TYPE_LABELS[shiftType]}
-                                </span>
-                                {shift ? (
-                                  <>
-                                    <span className={styles.shiftTime}>
-                                      {shift.startTime}–{shift.endTime}
-                                    </span>
-                                    <span className={styles.shiftCount}>
-                                      {shift.signupCount}/{shift.maxVolunteers}
-                                    </span>
-                                  </>
-                                ) : (
-                                  <span className={styles.shiftEmptyText}>Ingen skift</span>
-                                )}
-                              </button>
+                              <div key={shiftType} className={styles.shiftGroup}>
+                                <div className={styles.shiftGroupHeader}>
+                                  <span>{SHIFT_TYPE_LABELS[shiftType]}</span>
+                                  <span className={styles.shiftGroupSummary}>{summaryText}</span>
+                                </div>
+                                <div className={styles.calendarShiftList}>
+                                  {shiftGroup.map((shift) => {
+                                    const isFull = shift.signupCount >= shift.maxVolunteers
+                                    const classNames = [styles.calendarShift]
+
+                                    if (isFull) {
+                                      classNames.push(styles.calendarShiftFull)
+                                    } else {
+                                      classNames.push(styles.calendarShiftAvailable)
+                                    }
+
+                                    return (
+                                      <button
+                                        key={shift.id}
+                                        type="button"
+                                        className={classNames.join(' ')}
+                                        onClick={() => openAdminShiftDetails(shift)}
+                                        // Clicking a calendar badge just opens the admin detail panel; editing happens there.
+                                      >
+                                        <span className={styles.shiftRow}>
+                                          <span className={styles.shiftTitle}>{shift.title}</span>
+                                          <span className={styles.shiftCount}>
+                                            {shift.signupCount}/{shift.maxVolunteers}
+                                          </span>
+                                        </span>
+                                        <span className={styles.shiftMeta}>
+                                          {shift.startTime}–{shift.endTime}
+                                        </span>
+                                      </button>
+                                    )
+                                  })}
+                                </div>
+                              </div>
                             )
                           })}
                         </div>

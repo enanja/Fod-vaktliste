@@ -406,6 +406,38 @@
   gap: 6px;
 }
 
+.shiftGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 4px 0;
+}
+
+.shiftGroupEmpty {
+  opacity: 0.75;
+}
+
+.shiftGroupHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: #2d3748;
+}
+
+.shiftGroupSummary {
+  font-size: 11px;
+  color: #4a5568;
+  font-weight: 500;
+}
+
+.calendarShiftList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .calendarShift {
   border: none;
   border-radius: 8px;
@@ -443,9 +475,35 @@
   color: #718096;
 }
 
+.calendarShiftPlaceholder {
+  background: #edf2f7;
+  color: #718096;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+  font-style: italic;
+}
+
 .shiftLabel {
   font-weight: 700;
   letter-spacing: 0.3px;
+}
+
+.shiftRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.shiftTitle {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.shiftMeta {
+  font-size: 12px;
+  color: #2d3748;
 }
 
 .shiftTime {
