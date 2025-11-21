@@ -1,7 +1,10 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 export const runtime = "nodejs"
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/session'
+
+const prismaClient = prisma as any
 
 export async function GET() {
   try {
@@ -10,8 +13,6 @@ export async function GET() {
     if (!session.isLoggedIn || session.role !== 'ADMIN') {
       return NextResponse.json({ error: 'Ikke autorisert' }, { status: 403 })
     }
-
-    const prismaClient = prisma as any
 
     const applications = await prismaClient.volunteerApplication.findMany({
       orderBy: { createdAt: 'desc' },

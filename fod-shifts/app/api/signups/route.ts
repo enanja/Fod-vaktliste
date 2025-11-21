@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 export const runtime = "nodejs"
 import { NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
@@ -133,7 +134,7 @@ export async function POST(request: Request) {
       targetUserId = overrideUser.id
     }
 
-    const signup = await prisma.$transaction(async (tx) => {
+    const signup = await prismaClient.$transaction(async (tx: any) => {
       const shift = await tx.shift.findUnique({
         where: { id: shiftIdNumber },
         select: {
@@ -310,7 +311,7 @@ export async function GET() {
       )
     }
 
-    const signups = await prisma.signup.findMany({
+    const signups = await prismaClient.signup.findMany({
       where: {
         userId: session.userId,
         status: SignupStatus.CONFIRMED,
@@ -356,7 +357,7 @@ export async function DELETE(request: Request) {
       )
     }
 
-    const signup = await prisma.signup.findUnique({
+    const signup = await prismaClient.signup.findUnique({
       where: { id: Number(signupId) },
       include: {
         shift: true,
@@ -405,7 +406,7 @@ export async function DELETE(request: Request) {
       )
     }
 
-    const { updatedSignup, promotion } = await prisma.$transaction(async (tx) => {
+    const { updatedSignup, promotion } = await prismaClient.$transaction(async (tx: any) => {
       const updated = await tx.signup.update({
         where: { id: signup.id },
         data: {

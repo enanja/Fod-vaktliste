@@ -4,21 +4,6 @@ import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcrypt'
 import { getSession } from '@/lib/session'
 
-type UserWithAuthFields = {
-  id: number
-  name: string
-  email: string
-  hashedPassword: string
-  role: 'ADMIN' | 'FRIVILLIG'
-  status: string | null
-  isBlocked: boolean
-  blockedAt: Date | null
-  blockedReason: string | null
-  createdAt: Date
-}
-
-const prismaClient = prisma as any
-
 export async function POST(request: Request) {
   try {
     const { email, password } = await request.json()
@@ -32,21 +17,7 @@ export async function POST(request: Request) {
     }
 
     // Finn brukeren
-    const user = (await prismaClient.user.findUnique({
-      where: { email },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        hashedPassword: true,
-        role: true,
-        status: true,
-        isBlocked: true,
-        blockedAt: true,
-        blockedReason: true,
-        createdAt: true,
-      },
-    })) as UserWithAuthFields | null
+    const user = await prisma.user.findUnique({ where: { email } })
 
     if (!user) {
       return NextResponse.json(

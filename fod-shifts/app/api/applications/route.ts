@@ -13,9 +13,7 @@ export async function POST(request: Request) {
       )
     }
 
-    const prismaClient = prisma as any // cast needed until Prisma client is regenerated with new models
-
-    const existingPending = await prismaClient.volunteerApplication.findFirst({
+    const existingPending = await prisma.volunteerApplication.findFirst({
       where: {
         email,
         status: {
@@ -31,7 +29,7 @@ export async function POST(request: Request) {
       )
     }
 
-    const application = await prismaClient.volunteerApplication.create({
+    const application = await prisma.volunteerApplication.create({
       data: {
         name,
         email,

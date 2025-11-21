@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useAuth } from '@/lib/AuthContext'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
@@ -12,6 +12,25 @@ type InviteDetails = {
 }
 
 export default function RegisterPage() {
+  return (
+    <Suspense fallback={<RegisterPageFallback />}>
+      <RegisterPageContent />
+    </Suspense>
+  )
+}
+
+function RegisterPageFallback() {
+  return (
+    <div className={styles.container}>
+      <div className={styles.card}>
+        <h1>Registrer deg</h1>
+        <p className={styles.subtitle}>Laster invitasjon...</p>
+      </div>
+    </div>
+  )
+}
+
+function RegisterPageContent() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')

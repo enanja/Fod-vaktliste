@@ -1,8 +1,11 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 export const runtime = "nodejs"
 import { NextResponse } from 'next/server'
 import { SignupStatus } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/session'
+
+const prismaClient = prisma as any
 
 const SHIFT_INCLUDE = {
   signups: {
@@ -81,7 +84,7 @@ export async function GET(
       return NextResponse.json({ error: 'Ugyldig skift-ID' }, { status: 400 })
     }
 
-    const shift = await prisma.shift.findUnique({
+    const shift = await prismaClient.shift.findUnique({
       where: { id: shiftId },
       include: SHIFT_INCLUDE,
     })
@@ -153,7 +156,7 @@ export async function PATCH(
     const safeMax = Number.isNaN(parsedMax) || parsedMax < 1 ? 1 : parsedMax
     const shiftType = type === 'KVELD' ? 'KVELD' : 'MORGEN'
 
-    const updatedShift = await prisma.shift.update({
+    const updatedShift = await prismaClient.shift.update({
       where: { id: shiftId },
       data: {
         title,
@@ -196,7 +199,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Ugyldig skift-ID' }, { status: 400 })
     }
 
-    await prisma.shift.delete({ where: { id: shiftId } })
+    await prismaClient.shift.delete({ where: { id: shiftId } })
 
     return NextResponse.json({ success: true })
   } catch (error) {

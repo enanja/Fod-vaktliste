@@ -1,5 +1,6 @@
 export const runtime = "nodejs"
 import { NextResponse } from 'next/server'
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcrypt'
 
