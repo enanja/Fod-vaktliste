@@ -1,8 +1,33 @@
 export const runtime = "nodejs"
 import { NextResponse } from 'next/server'
+import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/session'
-import { sendAdminNotificationEmail } from '@/lib/email'
+import {
+  sendAdminSignupNotificationEmail,
+  sendAdminCancellationEmail,
+  sendAdminWaitlistPromotionEmail,
+  sendVolunteerPromotionEmail,
+  sendVolunteerCancellationEmail,
+  sendVolunteerAddedByAdminEmail,
+} from '@/lib/email'
+import { promoteNextWaitlistedVolunteer, getShiftStartDate } from '@/lib/signups'
+import { SignupStatus } from '@prisma/client'
+
+const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000
+
+type SignupWithShiftAndUser = Prisma.SignupGetPayload<{
+  include: {
+    shift: true
+    user: {
+      select: {
+        id: true
+        name: true
+        email: true
+      }
+    }
+  }
+}>
 
 // POST - Meld seg på et skift
 export async function POST(request: Request) {
@@ -16,7 +41,12 @@ export async function POST(request: Request) {
       )
     }
 
-    const { shiftId, comment } = await request.json()
+    const {
+      shiftId,
+      comment,
+      userId: overrideUserId,
+      userEmail,
+    } = await request.json()
 
     if (!shiftId) {
       return NextResponse.json(
@@ -25,78 +55,208 @@ export async function POST(request: Request) {
       )
     }
 
-    // Hent skiftet med påmeldinger
-    const shift = await prisma.shift.findUnique({
-      where: { id: parseInt(shiftId) },
-      include: {
-        signups: true,
-      },
-    })
+    const shiftIdNumber = typeof shiftId === 'number' ? shiftId : parseInt(shiftId, 10)
 
-    if (!shift) {
+    if (Number.isNaN(shiftIdNumber)) {
       return NextResponse.json(
-        { error: 'Skift ikke funnet' },
-        { status: 404 }
-      )
-    }
-
-    // Sjekk om skiftet er fullt
-    if (shift.signups.length >= shift.maxVolunteers) {
-      return NextResponse.json(
-        { error: 'Dette skiftet er dessverre fullt' },
+        { error: 'Ugyldig skift-ID' },
         { status: 400 }
       )
     }
 
-    // Sjekk om brukeren allerede er påmeldt
-    const existingSignup = await prisma.signup.findFirst({
-      where: {
-        shiftId: parseInt(shiftId),
-        userId: session.userId,
-      },
-    })
+    const isAdmin = session.role === 'ADMIN'
 
-    if (existingSignup) {
-      return NextResponse.json(
-        { error: 'Du er allerede påmeldt dette skiftet' },
-        { status: 400 }
-      )
+    let targetUserId = session.userId
+    let overrideUser: { id: number } | null = null
+
+    if (overrideUserId || userEmail) {
+      if (!isAdmin) {
+        return NextResponse.json(
+          { error: 'Kun admin kan legge til andre frivillige' },
+          { status: 403 }
+        )
+      }
+
+      if (overrideUserId) {
+        const parsedUserId = typeof overrideUserId === 'number'
+          ? overrideUserId
+          : parseInt(overrideUserId, 10)
+
+        if (Number.isNaN(parsedUserId)) {
+          return NextResponse.json(
+            { error: 'Ugyldig bruker-ID' },
+            { status: 400 }
+          )
+        }
+
+        overrideUser = await prisma.user.findUnique({ where: { id: parsedUserId } })
+      } else if (typeof userEmail === 'string') {
+        overrideUser = await prisma.user.findUnique({
+          where: { email: userEmail.trim().toLowerCase() },
+        })
+      }
+
+      if (!overrideUser) {
+        return NextResponse.json(
+          { error: 'Fant ingen frivillig med denne informasjonen' },
+          { status: 404 }
+        )
+      }
+
+      targetUserId = overrideUser.id
     }
 
-    // Opprett påmelding
-    const signup = await prisma.signup.create({
-      data: {
-        shiftId: parseInt(shiftId),
-        userId: session.userId,
-        comment: comment || null,
-      },
-      include: {
-        shift: true,
-        user: {
-          select: {
-            name: true,
-            email: true,
+    const signup = await prisma.$transaction(async (tx) => {
+      const shift = await tx.shift.findUnique({
+        where: { id: shiftIdNumber },
+        select: {
+          id: true,
+          maxVolunteers: true,
+        },
+      })
+
+      if (!shift) {
+        throw new Error('SHIFT_NOT_FOUND')
+      }
+
+      const currentHeadcount = await tx.signup.count({
+        where: {
+          shiftId: shiftIdNumber,
+          status: SignupStatus.CONFIRMED,
+        },
+      })
+      const overridingAnotherUser = targetUserId !== session.userId
+
+      if (currentHeadcount >= shift.maxVolunteers && !overridingAnotherUser) {
+        throw new Error('SHIFT_FULL')
+      }
+
+      const existingSignup = await tx.signup.findUnique({
+        where: {
+          shiftId_userId: {
+            shiftId: shiftIdNumber,
+            userId: targetUserId,
           },
         },
-      },
+        select: {
+          id: true,
+          status: true,
+        },
+      })
+
+      if (existingSignup && existingSignup.status === SignupStatus.CONFIRMED) {
+        throw new Error('ALREADY_SIGNED')
+      }
+
+      const transactionalClient = tx as typeof prisma
+      const waitlistEntry = await transactionalClient.waitlistEntry.findUnique({
+        where: {
+          shiftId_userId: {
+            shiftId: shiftIdNumber,
+            userId: targetUserId,
+          },
+        },
+      })
+
+      if (waitlistEntry) {
+        await transactionalClient.waitlistEntry.delete({ where: { id: waitlistEntry.id } })
+      }
+
+      const now = new Date()
+
+      const createdSignup = await tx.signup.upsert({
+        where: {
+          shiftId_userId: {
+            shiftId: shiftIdNumber,
+            userId: targetUserId,
+          },
+        },
+        update: {
+          status: SignupStatus.CONFIRMED,
+          comment: comment ? String(comment) : null,
+          cancelledAt: null,
+          confirmedAt: now,
+        },
+        create: {
+          shiftId: shiftIdNumber,
+          userId: targetUserId,
+          comment: comment ? String(comment) : null,
+          status: SignupStatus.CONFIRMED,
+          confirmedAt: now,
+        },
+        include: {
+          shift: true,
+          user: {
+            select: {
+              name: true,
+              email: true,
+            },
+          },
+        },
+      })
+
+      return createdSignup as SignupWithShiftAndUser
     })
 
-    // Send epost-notifikasjon til admin (simulert/ekte)
-    await sendAdminNotificationEmail({
+    await sendAdminSignupNotificationEmail({
       volunteerName: signup.user.name,
       volunteerEmail: signup.user.email,
       shiftTitle: signup.shift.title,
       shiftDate: signup.shift.date,
       comment: signup.comment || 'Ingen kommentar',
+      status: 'CONFIRMED',
     })
 
+    if (isAdmin && targetUserId !== session.userId) {
+      await sendVolunteerAddedByAdminEmail({
+        volunteerName: signup.user.name,
+        volunteerEmail: signup.user.email,
+        shiftTitle: signup.shift.title,
+        shiftDate: signup.shift.date,
+        shiftStart: signup.shift.startTime ?? 'Ukjent',
+        shiftEnd: signup.shift.endTime ?? 'Ukjent',
+        notes: signup.shift.notes,
+      })
+    }
+
+    const responseMessage =
+      isAdmin && targetUserId !== session.userId
+        ? `Frivillig ${signup.user.name} er lagt til på skiftet.`
+        : 'Påmelding vellykket'
+
     return NextResponse.json(
-      { message: 'Påmelding vellykket', signup },
+      { message: responseMessage, signup },
       { status: 201 }
     )
   } catch (error: unknown) {
-    // Sjekk om det er en Prisma unique constraint error
-    if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') {
+    if (error instanceof Error) {
+      switch (error.message) {
+        case 'SHIFT_NOT_FOUND':
+          return NextResponse.json(
+            { error: 'Skift ikke funnet' },
+            { status: 404 }
+          )
+        case 'SHIFT_FULL':
+          return NextResponse.json(
+            { error: 'Skiftet er fullt. Du kan sette deg på ventelisten.' },
+            { status: 409 }
+          )
+        case 'ALREADY_SIGNED':
+          return NextResponse.json(
+            { error: 'Du er allerede påmeldt dette skiftet' },
+            { status: 400 }
+          )
+        case 'SHIFT_FULL':
+          return NextResponse.json(
+            { error: 'Skiftet er fullt. Du kan sette deg på ventelisten.' },
+            { status: 409 }
+          )
+        default:
+          break
+      }
+    }
+
+    if (isPrismaUniqueError(error)) {
       return NextResponse.json(
         { error: 'Du er allerede påmeldt dette skiftet' },
         { status: 400 }
@@ -126,6 +286,7 @@ export async function GET() {
     const signups = await prisma.signup.findMany({
       where: {
         userId: session.userId,
+        status: SignupStatus.CONFIRMED,
       },
       include: {
         shift: true,
@@ -145,4 +306,162 @@ export async function GET() {
       { status: 500 }
     )
   }
+}
+
+// DELETE - Meld seg av et skift (frivillig) eller fjern frivillig (admin)
+export async function DELETE(request: Request) {
+  try {
+    const session = await getSession()
+
+    if (!session.isLoggedIn) {
+      return NextResponse.json(
+        { error: 'Du må være logget inn' },
+        { status: 401 }
+      )
+    }
+
+    const { signupId } = await request.json()
+
+    if (!signupId) {
+      return NextResponse.json(
+        { error: 'signupId er påkrevd' },
+        { status: 400 }
+      )
+    }
+
+    const signup = await prisma.signup.findUnique({
+      where: { id: Number(signupId) },
+      include: {
+        shift: true,
+        user: true,
+      },
+    })
+
+    if (!signup) {
+      return NextResponse.json(
+        { error: 'Påmelding ikke funnet' },
+        { status: 404 }
+      )
+    }
+
+    const isOwner = signup.userId === session.userId
+    const isAdmin = session.role === 'ADMIN'
+
+    if (!isOwner && !isAdmin) {
+      return NextResponse.json(
+        { error: 'Ikke autorisert' },
+        { status: 403 }
+      )
+    }
+
+    if (!isAdmin) {
+      const shiftStart = getShiftStartDate({
+        date: signup.shift.date,
+        startTime: signup.shift.startTime,
+      })
+
+      if (shiftStart.getTime() - Date.now() < TWENTY_FOUR_HOURS_MS) {
+        return NextResponse.json(
+          {
+            error:
+              'Du kan ikke melde deg av senere enn 24 timer før skiftet starter. Ta kontakt med admin.',
+          },
+          { status: 409 }
+        )
+      }
+    }
+
+    if (signup.status === SignupStatus.CANCELLED) {
+      return NextResponse.json(
+        { message: 'Påmeldingen er allerede kansellert' },
+        { status: 200 }
+      )
+    }
+
+    const { updatedSignup, promotion } = await prisma.$transaction(async (tx) => {
+      const updated = await tx.signup.update({
+        where: { id: signup.id },
+        data: {
+          status: SignupStatus.CANCELLED,
+          cancelledAt: new Date(),
+        },
+        include: {
+          shift: true,
+          user: true,
+        },
+      })
+
+      const promotionResult = await promoteNextWaitlistedVolunteer(signup.shiftId, tx)
+
+      return {
+        updatedSignup: updated,
+        promotion: promotionResult,
+      }
+    })
+
+    await sendAdminCancellationEmail({
+      volunteerName: updatedSignup.user.name,
+      volunteerEmail: updatedSignup.user.email,
+      shiftTitle: updatedSignup.shift.title,
+      shiftDate: updatedSignup.shift.date,
+      initiatedByAdmin: session.role === 'ADMIN',
+    })
+
+    await sendVolunteerCancellationEmail({
+      volunteerName: updatedSignup.user.name,
+      volunteerEmail: updatedSignup.user.email,
+      shiftTitle: updatedSignup.shift.title,
+      shiftDate: updatedSignup.shift.date,
+      initiatedByAdmin: session.role === 'ADMIN' && !isOwner,
+    })
+
+    if (promotion) {
+      await sendAdminWaitlistPromotionEmail({
+        volunteerName: promotion.signup.user.name,
+        volunteerEmail: promotion.signup.user.email,
+        shiftTitle: promotion.signup.shift.title,
+        shiftDate: promotion.signup.shift.date,
+        comment: promotion.signup.comment,
+      })
+
+      await sendVolunteerPromotionEmail({
+        volunteerName: promotion.signup.user.name,
+        volunteerEmail: promotion.signup.user.email,
+        shiftTitle: promotion.signup.shift.title,
+        shiftDate: promotion.signup.shift.date,
+        comment: promotion.signup.comment,
+      })
+    }
+
+    const message = isAdmin
+      ? 'Frivillig er fjernet fra skiftet.'
+      : 'Du er meldt av skiftet.'
+
+    const promotionMessage = promotion
+      ? `${promotion.signup.user.name} er flyttet fra ventelisten til skiftet.`
+      : null
+
+    return NextResponse.json({
+      message,
+      promotion,
+      filledFromWaitlist: Boolean(promotion),
+      promotionMessage,
+      promotionSignupId: promotion?.signup.id ?? null,
+    })
+  } catch (error) {
+    console.error('Error cancelling signup:', error)
+    return NextResponse.json(
+      { error: 'Kunne ikke kansellere påmelding' },
+      { status: 500 }
+    )
+  }
+}
+
+function isPrismaUniqueError(error: unknown): error is Prisma.PrismaClientKnownRequestError {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as Prisma.PrismaClientKnownRequestError).code === 'P2002'
+  )
 }

@@ -5,12 +5,59 @@ type SendEmailOptions = {
   text: string
 }
 
-type AdminNotificationData = {
+type SignupNotificationStatus = 'CONFIRMED' | 'WAITLISTED'
+
+type AdminSignupNotificationData = {
   volunteerName: string
   volunteerEmail: string
   shiftTitle: string
   shiftDate: Date
   comment: string
+  status: SignupNotificationStatus
+}
+
+type WaitlistPromotionNotificationData = {
+  volunteerName: string
+  volunteerEmail: string
+  shiftTitle: string
+  shiftDate: Date
+  comment?: string | null
+}
+
+type CancellationNotificationData = {
+  volunteerName: string
+  volunteerEmail: string
+  shiftTitle: string
+  shiftDate: Date
+  initiatedByAdmin: boolean
+}
+
+type VolunteerCancellationNotificationData = {
+  volunteerName: string
+  volunteerEmail: string
+  shiftTitle: string
+  shiftDate: Date
+  initiatedByAdmin: boolean
+}
+
+type VolunteerReminderData = {
+  volunteerName: string
+  volunteerEmail: string
+  shiftTitle: string
+  shiftDate: Date
+  shiftStart: string
+  shiftEnd: string
+  notes?: string | null
+}
+
+type VolunteerAddedByAdminData = {
+  volunteerName: string
+  volunteerEmail: string
+  shiftTitle: string
+  shiftDate: Date
+  shiftStart: string
+  shiftEnd: string
+  notes?: string | null
 }
 
 type PasswordResetData = {
@@ -59,24 +106,41 @@ async function sendEmail({ to, subject, html, text }: SendEmailOptions) {
   }
 }
 
-export async function sendAdminNotificationEmail(data: AdminNotificationData) {
-  const adminEmail = process.env.ADMIN_EMAIL || 'admin@fod.local'
+function formatShiftDate(shiftDate: Date) {
+  return shiftDate.toLocaleDateString('no-NO', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  })
+}
 
-  console.log('📧 === EPOST TIL ADMIN (skiftpåmelding) ===')
+export async function sendAdminSignupNotificationEmail(data: AdminSignupNotificationData) {
+  const adminEmail = process.env.ADMIN_EMAIL || 'admin@fod.local'
+  const statusLabel = data.status === 'CONFIRMED' ? 'påmelding' : 'venteliste'
+
+  console.log('📧 === EPOST TIL ADMIN (ny', statusLabel, ') ===')
   console.log('Til:', adminEmail)
   console.log(`Frivillig: ${data.volunteerName}`)
   console.log(`Epost: ${data.volunteerEmail}`)
   console.log(`Skift: ${data.shiftTitle}`)
-  console.log(`Dato: ${data.shiftDate.toLocaleDateString('no-NO')}`)
-  console.log(`Kommentar: ${data.comment}`)
+  console.log(`Dato: ${formatShiftDate(data.shiftDate)}`)
+  console.log(`Kommentar: ${data.comment || '-'}`)
   console.log('========================================')
+
+  const intro =
+    data.status === 'CONFIRMED'
+      ? 'En frivillig har fått plass på et skift!'
+      : 'En frivillig har stilt seg på venteliste til et skift.'
 
   await sendEmail({
     to: adminEmail,
-    subject: `Ny påmelding til skift: ${data.shiftTitle}`,
+    subject:
+      data.status === 'CONFIRMED'
+        ? `Ny påmelding til skift: ${data.shiftTitle}`
+        : `Ny venteliste-innmelding: ${data.shiftTitle}`,
     html: `
-      <h2>Ny påmelding til skift</h2>
-      <p>En frivillig har meldt seg på et skift!</p>
+      <h2>${intro}</h2>
       <h3>Frivillig informasjon:</h3>
       <ul>
         <li><strong>Navn:</strong> ${data.volunteerName}</li>
@@ -85,19 +149,229 @@ export async function sendAdminNotificationEmail(data: AdminNotificationData) {
       <h3>Skift informasjon:</h3>
       <ul>
         <li><strong>Skift:</strong> ${data.shiftTitle}</li>
-        <li><strong>Dato:</strong> ${data.shiftDate.toLocaleDateString('no-NO', {
-          weekday: 'long',
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-        })}</li>
+        <li><strong>Dato:</strong> ${formatShiftDate(data.shiftDate)}</li>
       </ul>
       <h3>Kommentar fra frivillig:</h3>
-      <p>${data.comment}</p>
-      <hr />
+      <p>${data.comment || 'Ingen kommentar oppgitt.'}</p>
       <p style="color: #666; font-size: 12px;">Dette er en automatisk melding fra FOD Frivillig System.</p>
     `,
-    text: `Ny påmelding til skift\n\nEn frivillig har meldt seg på et skift!\n\nFrivillig informasjon:\n- Navn: ${data.volunteerName}\n- Epost: ${data.volunteerEmail}\n\nSkift informasjon:\n- Skift: ${data.shiftTitle}\n- Dato: ${data.shiftDate.toLocaleDateString('no-NO')}\n\nKommentar fra frivillig:\n${data.comment}\n\n---\nDette er en automatisk melding fra FOD Frivillig System.`,
+    text: `${intro}\n\nFrivillig informasjon:\n- Navn: ${data.volunteerName}\n- Epost: ${data.volunteerEmail}\n\nSkift informasjon:\n- Skift: ${data.shiftTitle}\n- Dato: ${formatShiftDate(data.shiftDate)}\n\nKommentar fra frivillig:\n${data.comment || 'Ingen kommentar oppgitt.'}\n\n---\nDette er en automatisk melding fra FOD Frivillig System.`,
+  })
+}
+
+export async function sendAdminWaitlistPromotionEmail(data: WaitlistPromotionNotificationData) {
+  const adminEmail = process.env.ADMIN_EMAIL || 'admin@fod.local'
+
+  console.log('📧 === EPOST TIL ADMIN (venteliste -> plass) ===')
+  console.log('Til:', adminEmail)
+  console.log(`Frivillig: ${data.volunteerName}`)
+  console.log(`Skift: ${data.shiftTitle}`)
+  console.log(`Dato: ${formatShiftDate(data.shiftDate)}`)
+  console.log('========================================')
+
+  await sendEmail({
+    to: adminEmail,
+    subject: `Ventelisteoppdatering: ${data.shiftTitle}`,
+    html: `
+      <h2>Frivillig fått plass fra venteliste</h2>
+      <p>En frivillig er automatisk flyttet fra venteliste til aktiv påmeldingsliste.</p>
+      <h3>Frivillig</h3>
+      <ul>
+        <li><strong>Navn:</strong> ${data.volunteerName}</li>
+        <li><strong>Epost:</strong> ${data.volunteerEmail}</li>
+      </ul>
+      <h3>Skift</h3>
+      <ul>
+        <li><strong>Tittel:</strong> ${data.shiftTitle}</li>
+        <li><strong>Dato:</strong> ${formatShiftDate(data.shiftDate)}</li>
+      </ul>
+      <p style="color: #666; font-size: 12px;">Dette er en automatisk melding fra FOD Frivillig System.</p>
+    `,
+    text: `En frivillig er flyttet fra venteliste til påmeldingslisten.\n\nFrivillig:\n- Navn: ${data.volunteerName}\n- Epost: ${data.volunteerEmail}\n\nSkift:\n- ${data.shiftTitle}\n- ${formatShiftDate(data.shiftDate)}\n\n---\nDette er en automatisk melding fra FOD Frivillig System.`,
+  })
+}
+
+export async function sendVolunteerPromotionEmail(data: WaitlistPromotionNotificationData) {
+  if (!isEmailEnabled) {
+    console.log('ℹ️  Epost til frivillig (promotert fra venteliste) er deaktivert.')
+    return
+  }
+
+  console.log('📧 === EPOST TIL FRIVILLIG (venteliste -> plass) ===')
+  console.log('Til:', data.volunteerEmail)
+  console.log(`Skift: ${data.shiftTitle}`)
+  console.log(`Dato: ${formatShiftDate(data.shiftDate)}`)
+  console.log('========================================')
+
+  await sendEmail({
+    to: data.volunteerEmail,
+    subject: `Du har fått plass på skift: ${data.shiftTitle}`,
+    html: `
+      <p>Hei ${data.volunteerName},</p>
+      <p>God nyhet! Du har fått plass på skiftet <strong>${data.shiftTitle}</strong> den <strong>${formatShiftDate(data.shiftDate)}</strong>.</p>
+      <p>Hvis tiden ikke lenger passer er det fint om du melder deg av i systemet så raskt som mulig.</p>
+      <p>Vi sees på senteret!</p>
+      <br />
+      <p>Vennlig hilsen<br />FOD Frivillig System</p>
+    `,
+    text: `Hei ${data.volunteerName},\n\nDu har fått plass på skiftet "${data.shiftTitle}" den ${formatShiftDate(data.shiftDate)}.\n\nHvis tiden ikke passer lenger kan du melde deg av i systemet.\n\nVennlig hilsen\nFOD Frivillig System`,
+  })
+}
+
+export async function sendAdminCancellationEmail(data: CancellationNotificationData) {
+  const adminEmail = process.env.ADMIN_EMAIL || 'admin@fod.local'
+
+  console.log('📧 === EPOST TIL ADMIN (avmelding) ===')
+  console.log('Til:', adminEmail)
+  console.log(`Frivillig: ${data.volunteerName}`)
+  console.log(`Skift: ${data.shiftTitle}`)
+  console.log(`Dato: ${formatShiftDate(data.shiftDate)}`)
+  console.log('========================================')
+
+  const initiatorLabel = data.initiatedByAdmin
+    ? 'En administrator har fjernet en frivillig fra et skift.'
+    : 'En frivillig har meldt seg av et skift.'
+
+  await sendEmail({
+    to: adminEmail,
+    subject: `Avmelding: ${data.shiftTitle}`,
+    html: `
+      <h2>${initiatorLabel}</h2>
+      <h3>Frivillig</h3>
+      <ul>
+        <li><strong>Navn:</strong> ${data.volunteerName}</li>
+        <li><strong>Epost:</strong> ${data.volunteerEmail}</li>
+      </ul>
+      <h3>Skift</h3>
+      <ul>
+        <li><strong>Tittel:</strong> ${data.shiftTitle}</li>
+        <li><strong>Dato:</strong> ${formatShiftDate(data.shiftDate)}</li>
+      </ul>
+      <p style="color: #666; font-size: 12px;">Dette er en automatisk melding fra FOD Frivillig System.</p>
+    `,
+    text: `${initiatorLabel}\n\nFrivillig:\n- Navn: ${data.volunteerName}\n- Epost: ${data.volunteerEmail}\n\nSkift:\n- ${data.shiftTitle}\n- ${formatShiftDate(data.shiftDate)}\n\n---\nDette er en automatisk melding fra FOD Frivillig System.`,
+  })
+}
+
+export async function sendVolunteerCancellationEmail(
+  data: VolunteerCancellationNotificationData
+) {
+  if (!isEmailEnabled) {
+    console.log('ℹ️  Epost til frivillig (avmelding) er deaktivert.')
+    return
+  }
+
+  console.log('📧 === EPOST TIL FRIVILLIG (avmelding) ===')
+  console.log('Til:', data.volunteerEmail)
+  console.log(`Skift: ${data.shiftTitle}`)
+  console.log(`Dato: ${formatShiftDate(data.shiftDate)}`)
+  console.log('========================================')
+
+  const intro = data.initiatedByAdmin
+    ? 'En administrator har fjernet deg fra dette skiftet.'
+    : 'Du har meldt deg av skiftet.'
+
+  await sendEmail({
+    to: data.volunteerEmail,
+    subject: `Bekreftelse på avmelding: ${data.shiftTitle}`,
+    html: `
+      <p>Hei ${data.volunteerName},</p>
+      <p>${intro}</p>
+      <p><strong>Skift:</strong> ${data.shiftTitle}</p>
+      <p><strong>Dato:</strong> ${formatShiftDate(data.shiftDate)}</p>
+      <p>Ta kontakt med administrasjonen dersom noe er uklart.</p>
+      <br />
+      <p>Vennlig hilsen<br />FOD Frivillig System</p>
+    `,
+    text: `Hei ${data.volunteerName},
+
+${intro}
+
+Skift: ${data.shiftTitle}
+Dato: ${formatShiftDate(data.shiftDate)}
+
+Ta kontakt med administrasjonen dersom noe er uklart.
+
+Vennlig hilsen
+FOD Frivillig System`,
+  })
+}
+
+export async function sendVolunteerReminderEmail(data: VolunteerReminderData) {
+  if (!isEmailEnabled) {
+    console.log('ℹ️  Epost til frivillig (påminnelse) er deaktivert.')
+    return
+  }
+
+  console.log('📧 === EPOST TIL FRIVILLIG (påminnelse) ===')
+  console.log('Til:', data.volunteerEmail)
+  console.log(`Skift: ${data.shiftTitle}`)
+  console.log(`Dato: ${formatShiftDate(data.shiftDate)}`)
+  console.log('========================================')
+
+  await sendEmail({
+    to: data.volunteerEmail,
+    subject: `Påminnelse: ${data.shiftTitle} ${formatShiftDate(data.shiftDate)}`,
+    html: `
+      <p>Hei ${data.volunteerName},</p>
+      <p>Dette er en vennlig påminnelse om at du er satt opp på skiftet <strong>${data.shiftTitle}</strong>.</p>
+      <p><strong>Tid:</strong> ${data.shiftStart} – ${data.shiftEnd}</p>
+      ${data.notes ? `<p><strong>Notater:</strong> ${data.notes}</p>` : ''}
+      <p>Gi oss beskjed dersom du ikke kan møte opp.</p>
+      <br />
+      <p>Vennlig hilsen<br />FOD Frivillig System</p>
+    `,
+    text: `Hei ${data.volunteerName},
+
+Dette er en vennlig påminnelse om at du er satt opp på skiftet "${data.shiftTitle}".
+
+Tid: ${data.shiftStart} – ${data.shiftEnd}
+${data.notes ? `Notater: ${data.notes}
+` : ''}
+Gi oss beskjed dersom du ikke kan møte opp.
+
+Vennlig hilsen
+FOD Frivillig System`,
+  })
+}
+
+export async function sendVolunteerAddedByAdminEmail(data: VolunteerAddedByAdminData) {
+  if (!isEmailEnabled) {
+    console.log('ℹ️  Epost til frivillig (lagt til av admin) er deaktivert.')
+    return
+  }
+
+  console.log('📧 === EPOST TIL FRIVILLIG (lagt til av admin) ===')
+  console.log('Til:', data.volunteerEmail)
+  console.log(`Skift: ${data.shiftTitle}`)
+  console.log(`Dato: ${formatShiftDate(data.shiftDate)}`)
+  console.log('========================================')
+
+  await sendEmail({
+    to: data.volunteerEmail,
+    subject: `Du er satt opp på skift: ${data.shiftTitle}`,
+    html: `
+      <p>Hei ${data.volunteerName},</p>
+      <p>En administrator har lagt deg til på skiftet <strong>${data.shiftTitle}</strong>.</p>
+      <p><strong>Dato:</strong> ${formatShiftDate(data.shiftDate)}</p>
+      <p><strong>Tid:</strong> ${data.shiftStart} – ${data.shiftEnd}</p>
+      ${data.notes ? `<p><strong>Notater:</strong> ${data.notes}</p>` : ''}
+      <p>Gi beskjed dersom tidspunktet ikke passer.</p>
+      <br />
+      <p>Vennlig hilsen<br />FOD Frivillig System</p>
+    `,
+    text: `Hei ${data.volunteerName},
+
+En administrator har lagt deg til på skiftet "${data.shiftTitle}".
+
+Dato: ${formatShiftDate(data.shiftDate)}
+Tid: ${data.shiftStart} – ${data.shiftEnd}
+${data.notes ? `Notater: ${data.notes}
+` : ''}
+Gi beskjed dersom tidspunktet ikke passer.
+
+Vennlig hilsen
+FOD Frivillig System`,
   })
 }
 

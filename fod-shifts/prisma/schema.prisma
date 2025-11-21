@@ -8,6 +8,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
 }
 
 enum Role {
@@ -20,6 +21,12 @@ enum ShiftType {
   KVELD
 }
 
+enum SignupStatus {
+  CONFIRMED
+  WAITLISTED
+  CANCELLED
+}
+
 model User {
   id        Int      @id @default(autoincrement())
   name      String
@@ -29,6 +36,7 @@ model User {
   createdAt DateTime @default(now())
   
   signups   Signup[]
+  waitlistEntries WaitlistEntry[]
   passwordResetTokens PasswordResetToken[]
 }
 
@@ -45,6 +53,7 @@ model Shift {
   createdAt     DateTime @default(now())
   
   signups       Signup[]
+  waitlistEntries WaitlistEntry[]
 }
 
 model Signup {
@@ -53,11 +62,33 @@ model Signup {
   userId    Int
   comment   String?
   createdAt DateTime @default(now())
+  status    SignupStatus @default(CONFIRMED)
+  confirmedAt DateTime?
+  cancelledAt DateTime?
+  workedMinutes Int?
+  attendanceNote String?
+  reminderSentAt DateTime?
+  updatedAt DateTime @updatedAt
   
   shift     Shift    @relation(fields: [shiftId], references: [id], onDelete: Cascade)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   
   @@unique([shiftId, userId]) // En bruker kan kun melde seg på et skift én gang
+  @@index([shiftId, status])
+}
+
+model WaitlistEntry {
+  id        Int      @id @default(autoincrement())
+  shiftId   Int
+  userId    Int
+  comment   String?
+  createdAt DateTime @default(now())
+
+  shift     Shift    @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([shiftId, userId])
+  @@index([shiftId, createdAt])
 }
 
 model PasswordResetToken {

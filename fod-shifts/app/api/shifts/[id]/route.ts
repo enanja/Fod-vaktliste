@@ -1,7 +1,7 @@
 export const runtime = "nodejs"
 import { NextResponse } from 'next/server'
+import { SignupStatus } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
-import { getSession } from '@/lib/session'
 
 export async function GET(
   request: Request,
@@ -15,6 +15,26 @@ export async function GET(
       where: { id: shiftId },
       include: {
         signups: {
+          where: {
+            status: SignupStatus.CONFIRMED,
+          },
+          orderBy: {
+            createdAt: 'asc',
+          },
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+          },
+        },
+        waitlistEntries: {
+          orderBy: {
+            createdAt: 'asc',
+          },
           include: {
             user: {
               select: {
@@ -38,6 +58,7 @@ export async function GET(
     return NextResponse.json({
       ...shift,
       signupCount: shift.signups.length,
+      waitlistCount: shift.waitlistEntries.length,
     })
   } catch (error) {
     console.error('Error fetching shift:', error)
