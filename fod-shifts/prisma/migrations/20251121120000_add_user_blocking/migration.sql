@@ -7,6 +7,16 @@ ALTER TABLE "User"
 ALTER TABLE "User"
   ADD COLUMN IF NOT EXISTS "blockedReason" TEXT;
 
-UPDATE "User"
-SET "isBlocked" = true
-WHERE LOWER("status") = 'blocked';
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_name = 'User'
+      AND column_name = 'status'
+  ) THEN
+    UPDATE "User"
+    SET "isBlocked" = true
+    WHERE LOWER("status") = 'blocked';
+  END IF;
+END $$;
