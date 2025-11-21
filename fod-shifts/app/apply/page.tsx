@@ -52,7 +52,7 @@ export default function ApplyPage() {
   return (
     <div className={styles.container}>
       <div className={styles.card}>
-        <h1>Søk om å bli frivillig</h1>
+        <h1>Søk om tilgang</h1>
         <p className={styles.subtitle}>Fortell oss litt om deg selv og hvorfor du vil hjelpe FOD.</p>
 
         {success ? (

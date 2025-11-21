@@ -16,12 +16,6 @@ export async function GET() {
 
     const applications = await prismaClient.volunteerApplication.findMany({
       orderBy: { createdAt: 'desc' },
-      include: {
-        invites: {
-          orderBy: { createdAt: 'desc' },
-          take: 1,
-        },
-      },
     })
 
     return NextResponse.json({ applications })

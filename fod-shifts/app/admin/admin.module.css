@@ -70,6 +70,19 @@
   cursor: not-allowed;
 }
 
+.filtersRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.filterLabel {
+  font-size: 14px;
+  font-weight: 600;
+  color: #4a5568;
+}
+
 .shiftsContainer h2 {
   margin: 0 0 20px 0;
   color: #1a202c;

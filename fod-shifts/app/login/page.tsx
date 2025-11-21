@@ -37,8 +37,15 @@ export default function LoginPage() {
         <p className={styles.subtitle}>FOD Frivillig Skift</p>
         
         <Link href="/apply" className={styles.secondaryButton}>
-          Søk om å bli frivillig
+          Søk om tilgang
         </Link>
+
+        <p className={styles.link}>
+          Allerede godkjent frivillig? <Link href="/register">Registrer deg her</Link>
+        </p>
+        <p className={styles.note}>
+          NB: Bruk samme e-post som i den godkjente søknaden.
+        </p>
 
         {error && <div className={styles.error}>{error}</div>}
         
@@ -77,7 +84,7 @@ export default function LoginPage() {
         </p>
 
         <p className={styles.link}>
-          Har du fått invitasjon? Bruk lenken du mottok på e-post for å registrere deg.
+          Godkjent søknad? Registrer deg via lenken over.
         </p>
 
         <div className={styles.demo}>

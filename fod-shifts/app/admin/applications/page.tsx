@@ -8,14 +8,6 @@ import styles from '../admin.module.css'
 
 type ApplicationStatus = 'pending' | 'approved' | 'rejected'
 
-interface InviteSummary {
-  id: string
-  token: string
-  createdAt: string
-  usedAt: string | null
-  expiresAt: string
-}
-
 interface VolunteerApplication {
   id: string
   name: string
@@ -25,7 +17,6 @@ interface VolunteerApplication {
   status: ApplicationStatus
   createdAt: string
   updatedAt: string
-  invites?: InviteSummary[]
 }
 
 export default function AdminApplicationsPage() {
@@ -143,11 +134,8 @@ export default function AdminApplicationsPage() {
               </tr>
             </thead>
             <tbody>
-              {applications.map((application) => {
-                const latestInvite = application.invites?.[0] ?? null
-
-                return (
-                  <tr key={application.id}>
+              {applications.map((application) => (
+                <tr key={application.id}>
                     <td>{application.name}</td>
                     <td>{application.email}</td>
                     <td>{application.phone || '—'}</td>
@@ -170,8 +158,8 @@ export default function AdminApplicationsPage() {
                           onClick={() => handleAction(application.id, 'approve')}
                         >
                           {processingId === application.id && application.status !== 'approved'
-                            ? 'Sender invitasjon...'
-                            : 'Godkjenn og send invitasjon'}
+                            ? 'Sender e-post...'
+                            : 'Godkjenn og send e-post'}
                         </button>
                         <button
                           className={styles.buttonSecondary}
@@ -182,16 +170,15 @@ export default function AdminApplicationsPage() {
                             ? 'Avslår...'
                             : 'Avslå'}
                         </button>
-                        {latestInvite ? (
+                        {application.status !== 'approved' ? (
                           <span style={{ fontSize: '12px', color: '#4a5568' }}>
-                            Seneste invitasjon: {new Date(latestInvite.createdAt).toLocaleDateString('no-NO')}
+                            Godkjenning åpner registrering for søkeren.
                           </span>
                         ) : null}
                       </div>
                     </td>
                   </tr>
-                )
-              })}
+              ))}
             </tbody>
           </table>
         </div>

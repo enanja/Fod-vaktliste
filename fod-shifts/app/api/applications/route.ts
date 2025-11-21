@@ -13,11 +13,24 @@ export async function POST(request: Request) {
       )
     }
 
+    const trimmedName = String(name).trim()
+    const normalizedEmail = String(email).trim().toLowerCase()
+
+    if (!trimmedName || !normalizedEmail) {
+      return NextResponse.json(
+        { error: 'Ugyldig navn eller epost.' },
+        { status: 400 }
+      )
+    }
+
     const existingPending = await prisma.volunteerApplication.findFirst({
       where: {
-        email,
         status: {
           in: ['pending', 'approved'],
+        },
+        email: {
+          equals: normalizedEmail,
+          mode: 'insensitive',
         },
       },
     })
@@ -31,8 +44,8 @@ export async function POST(request: Request) {
 
     const application = await prisma.volunteerApplication.create({
       data: {
-        name,
-        email,
+        name: trimmedName,
+        email: normalizedEmail,
         phone: phone || null,
         message,
       },

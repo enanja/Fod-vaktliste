@@ -3,14 +3,9 @@ export const runtime = "nodejs"
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/session'
-import crypto from 'crypto'
 import { sendVolunteerInviteEmail, sendVolunteerApplicationRejectedEmail } from '@/lib/email'
 
 const prismaClient = prisma as any // until Prisma client is regenerated
-
-function generateToken(length = 48) {
-  return crypto.randomBytes(length).toString('hex')
-}
 
 function getBaseUrl() {
   if (process.env.NEXT_PUBLIC_BASE_URL) {
@@ -51,7 +46,6 @@ export async function PATCH(
 
     const application = await prismaClient.volunteerApplication.findUnique({
       where: { id: applicationId },
-      include: { invites: true },
     })
 
     if (!application) {
@@ -59,36 +53,23 @@ export async function PATCH(
     }
 
     if (action === 'approve') {
-      const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 14) // 14 dager
-      const tokenValue = generateToken(24)
-
-      const invite = await prismaClient.inviteToken.create({
-        data: {
-          email: application.email,
-          applicantId: application.id,
-          token: tokenValue,
-          expiresAt,
-        },
-      })
-
       const updatedApplication = await prismaClient.volunteerApplication.update({
         where: { id: application.id },
         data: { status: 'approved' },
       })
 
-      const inviteUrl = `${getBaseUrl()}/register?token=${invite.token}`
+      const registerUrl = `${getBaseUrl()}/register`
 
       await sendVolunteerInviteEmail({
         to: application.email,
         applicantName: application.name,
-        inviteUrl,
-        expiresAt,
+        registerUrl,
       })
 
       return NextResponse.json({
         application: {
           ...updatedApplication,
-          invites: [invite],
+          invites: [],
         },
       })
     }

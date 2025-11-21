@@ -1,111 +1,69 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 export const runtime = "nodejs"
 import { NextResponse } from 'next/server'
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcrypt'
 
 const prismaClient = prisma as any
 
-export async function GET(request: Request) {
-  try {
-    const { searchParams } = new URL(request.url)
-    const token = searchParams.get('token')
-
-    if (!token) {
-      return NextResponse.json(
-        { valid: false, error: 'Invitasjonstoken mangler.' },
-        { status: 400 }
-      )
-    }
-
-    const invite = await prismaClient.inviteToken.findUnique({
-      where: { token },
-      include: {
-        applicant: true,
-      },
-    })
-
-    if (!invite) {
-      return NextResponse.json(
-        { valid: false, error: 'Denne registreringslenken er ugyldig.' },
-        { status: 404 }
-      )
-    }
-
-    if (invite.usedAt) {
-      return NextResponse.json(
-        { valid: false, error: 'Denne registreringslenken er allerede brukt.' },
-        { status: 410 }
-      )
-    }
-
-    if (invite.expiresAt && invite.expiresAt.getTime() < Date.now()) {
-      return NextResponse.json(
-        { valid: false, error: 'Registreringslenken er utløpt. Be om en ny invitasjon.' },
-        { status: 410 }
-      )
-    }
-
-    return NextResponse.json({
-      valid: true,
-      invite: {
-        email: invite.email,
-        applicantName: invite.applicant?.name ?? null,
-        expiresAt: invite.expiresAt?.toISOString() ?? null,
-      },
-    })
-  } catch (error) {
-    console.error('Invite validation error:', error)
-    return NextResponse.json(
-      { valid: false, error: 'Kunne ikke validere invitasjonen.' },
-      { status: 500 }
-    )
-  }
+export async function GET() {
+  return NextResponse.json(
+    {
+      valid: false,
+      error: 'Registrering krever ikke lenger invitasjonslenke. Gå til /register for å opprette konto.',
+    },
+    { status: 410 }
+  )
 }
 
 export async function POST(request: Request) {
   try {
-    const { name, password, token } = await request.json()
+    const { name, email, password } = await request.json()
 
-    if (!name || !password || !token) {
+    if (!name || !email || !password) {
       return NextResponse.json(
-        { error: 'Navn, passord og invitasjonstoken er påkrevd.' },
+        { error: 'Navn, e-post og passord er påkrevd.' },
         { status: 400 }
       )
     }
 
-    const invite = await prismaClient.inviteToken.findUnique({
-      where: { token },
-      include: {
-        applicant: true,
+    const trimmedName = String(name).trim()
+    const normalizedEmail = String(email).trim().toLowerCase()
+
+    if (!trimmedName || !normalizedEmail) {
+      return NextResponse.json(
+        { error: 'Navn og e-post kan ikke være tomme.' },
+        { status: 400 }
+      )
+    }
+
+    const approvedApplication = await prismaClient.volunteerApplication.findFirst({
+      where: {
+        status: 'approved',
+        email: {
+          equals: normalizedEmail,
+          mode: 'insensitive',
+        },
       },
     })
 
-    if (!invite) {
+    if (!approvedApplication) {
       return NextResponse.json(
-        { error: 'Invitasjonen finnes ikke eller er ugyldig.' },
-        { status: 404 }
+        {
+          error:
+            'Denne e-posten er ikke godkjent som frivillig ennå. Send inn søknad først, eller vent på godkjenning fra FOD.',
+        },
+        { status: 403 }
       )
     }
 
-    if (invite.usedAt) {
-      return NextResponse.json(
-        { error: 'Denne invitasjonen er allerede brukt.' },
-        { status: 410 }
-      )
-    }
-
-    if (invite.expiresAt && invite.expiresAt.getTime() < Date.now()) {
-      return NextResponse.json(
-        { error: 'Invitasjonen er utløpt. Kontakt FOD for en ny lenke.' },
-        { status: 410 }
-      )
-    }
-
-    const inviteEmail = invite.email.trim().toLowerCase()
-
-    const existingUser = await prismaClient.user.findUnique({
-      where: { email: inviteEmail },
+    const existingUser = await prismaClient.user.findFirst({
+      where: {
+        email: {
+          equals: normalizedEmail,
+          mode: 'insensitive',
+        },
+      },
     })
 
     if (existingUser) {
@@ -117,51 +75,36 @@ export async function POST(request: Request) {
 
     const hashedPassword = await bcrypt.hash(password, 10)
 
-    const user = await prismaClient.user.create({
-      data: {
-        name: name || invite.applicant?.name || inviteEmail.split('@')[0],
-        email: inviteEmail,
-        hashedPassword,
-        role: 'FRIVILLIG',
-        status: 'active',
-        isBlocked: false,
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        status: true,
-      },
-    })
+    const user = await prismaClient.$transaction(async (tx: any) => {
+      const createdUser = await tx.user.create({
+        data: {
+          name: trimmedName || approvedApplication.name || normalizedEmail.split('@')[0],
+          email: normalizedEmail,
+          hashedPassword,
+          role: 'FRIVILLIG',
+          status: 'active',
+          isBlocked: false,
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          status: true,
+        },
+      })
 
-    await prismaClient.inviteToken.update({
-      where: { id: invite.id },
-      data: {
-        usedAt: new Date(),
-      },
-    })
+      await tx.volunteerApplication.update({
+        where: { id: approvedApplication.id },
+        data: { status: 'completed' },
+      })
 
-    if (invite.applicantId) {
-      try {
-        await prismaClient.volunteerApplication.update({
-          where: { id: invite.applicantId },
-          data: { status: 'completed' },
-        })
-      } catch (updateError) {
-        console.warn('Kunne ikke oppdatere søknadsstatus:', updateError)
-      }
-    }
+      return createdUser
+    })
 
     return NextResponse.json({
       message: 'Bruker opprettet',
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        status: user.status,
-      },
+      user,
     })
   } catch (error) {
     console.error('Register error:', error)

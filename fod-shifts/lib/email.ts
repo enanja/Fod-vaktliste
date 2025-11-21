@@ -378,15 +378,13 @@ export async function sendVolunteerAddedByAdminEmail(data: VolunteerAddedByAdmin
 type VolunteerInviteEmailData = {
   to: string
   applicantName: string
-  inviteUrl: string
-  expiresAt: Date
+  registerUrl: string
 }
 
 export async function sendVolunteerInviteEmail(data: VolunteerInviteEmailData) {
-  console.log('📧 === EPOST TIL SØKER (invitasjon) ===')
+  console.log('📧 === EPOST TIL SØKER (godkjenning) ===')
   console.log('Til:', data.to)
-  console.log('Lenke:', data.inviteUrl)
-  console.log('Gyldig til:', data.expiresAt.toISOString())
+  console.log('Lenke:', data.registerUrl)
   console.log('========================================')
 
   if (!isEmailEnabled) {
@@ -400,9 +398,8 @@ export async function sendVolunteerInviteEmail(data: VolunteerInviteEmailData) {
     html: `
       <p>Hei ${data.applicantName},</p>
       <p>Hurra! Søknaden din om å bli frivillig hos FOD er godkjent.</p>
-      <p>Fullfør registreringen ved å trykke på lenken under og opprette en konto:</p>
-      <p><a href="${data.inviteUrl}" target="_blank" rel="noopener noreferrer">Opprett konto</a></p>
-      <p>Lenken er gyldig til <strong>${data.expiresAt.toLocaleDateString('no-NO')}</strong>.</p>
+      <p>Gå til registreringssiden for å opprette en brukerkonto med samme e-postadresse som du brukte i søknaden:</p>
+      <p><a href="${data.registerUrl}" target="_blank" rel="noopener noreferrer">Åpne registreringssiden</a></p>
       <p>Vi gleder oss til å ha deg med på laget!</p>
       <br />
       <p>Vennlig hilsen<br />FOD Frivillig System</p>
@@ -411,10 +408,8 @@ export async function sendVolunteerInviteEmail(data: VolunteerInviteEmailData) {
 
 Hurra! Søknaden din om å bli frivillig hos FOD er godkjent.
 
-Fullfør registreringen ved å åpne lenken:
-${data.inviteUrl}
-
-Lenken er gyldig til ${data.expiresAt.toLocaleDateString('no-NO')}.
+Gå til registreringssiden for å opprette bruker med samme e-post som i søknaden:
+${data.registerUrl}
 
 Vi gleder oss til å ha deg med på laget!
 

@@ -158,6 +158,13 @@
   text-decoration: underline;
 }
 
+.note {
+  text-align: center;
+  margin-top: 8px;
+  color: #718096;
+  font-size: 12px;
+}
+
 .demo {
   margin-top: 24px;
   padding: 16px;

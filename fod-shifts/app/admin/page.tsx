@@ -561,6 +561,12 @@ export default function AdminPage() {
           </button>
           <button
             className={styles.buttonSecondary}
+            onClick={() => router.push('/admin/signups')}
+          >
+            Påmeldinger
+          </button>
+          <button
+            className={styles.buttonSecondary}
             onClick={() => router.push('/admin/stats')}
           >
             Statistikk
