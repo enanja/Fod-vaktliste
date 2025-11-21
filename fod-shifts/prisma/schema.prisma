@@ -33,6 +33,7 @@ model User {
   email     String   @unique
   hashedPassword String
   role      Role     @default(FRIVILLIG)
+  status    String   @default("active")
   createdAt DateTime @default(now())
   
   signups   Signup[]
@@ -99,4 +100,28 @@ model PasswordResetToken {
   expiresAt DateTime
   usedAt    DateTime?
   createdAt DateTime @default(now())
+}
+
+model VolunteerApplication {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  phone     String?
+  message   String?
+  status    String   @default("pending")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  invites   InviteToken[]
+}
+
+model InviteToken {
+  id          String   @id @default(cuid())
+  token       String   @unique
+  email       String
+  applicantId String?
+  applicant   VolunteerApplication? @relation(fields: [applicantId], references: [id])
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdAt   DateTime @default(now())
 }

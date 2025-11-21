@@ -80,6 +80,12 @@ export default function AdminPage() {
   })
   const [reminderStatus, setReminderStatus] = useState('')
   const [sendingReminders, setSendingReminders] = useState(false)
+  const [editFormData, setEditFormData] = useState<FormState | null>(null)
+  const [updatingShift, setUpdatingShift] = useState(false)
+  const [deleteBusy, setDeleteBusy] = useState(false)
+  const [detailNotice, setDetailNotice] = useState<
+    { type: 'success' | 'error'; text: string } | null
+  >(null)
 
   const [formData, setFormData] = useState<FormState>(
     () => ({
@@ -208,8 +214,108 @@ export default function AdminPage() {
   const capitalise = (value: string) =>
     value.length > 0 ? value[0].toUpperCase() + value.slice(1) : value
 
+  const toDateInputValue = (isoDate: string) => (isoDate ? isoDate.slice(0, 10) : '')
+
+  useEffect(() => {
+    if (selectedShift) {
+      setEditFormData({
+        title: selectedShift.title,
+        description: selectedShift.description ?? '',
+        notes: selectedShift.notes ?? '',
+        date: toDateInputValue(selectedShift.date),
+        startTime: selectedShift.startTime,
+        endTime: selectedShift.endTime,
+        maxVolunteers: selectedShift.maxVolunteers,
+        type: selectedShift.type,
+      })
+    } else {
+      setEditFormData(null)
+      setDetailNotice(null)
+      setUpdatingShift(false)
+      setDeleteBusy(false)
+    }
+  }, [selectedShift])
+
   const openAdminShiftDetails = (shift: Shift) => {
+    setDetailNotice(null)
     setSelectedShift(shift)
+  }
+
+  const closeShiftDetail = () => {
+    setSelectedShift(null)
+  }
+
+  const handleUpdateShift = async (event: React.FormEvent) => {
+    event.preventDefault()
+
+    if (!selectedShift || !editFormData) {
+      return
+    }
+
+    setUpdatingShift(true)
+    setDetailNotice(null)
+
+    try {
+      const response = await fetch(`/api/shifts/${selectedShift.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...editFormData,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Kunne ikke oppdatere skiftet')
+      }
+
+      setDetailNotice({ type: 'success', text: 'Endringene er lagret.' })
+      await fetchShifts()
+    } catch (err) {
+      setDetailNotice({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Kunne ikke oppdatere skiftet',
+      })
+    } finally {
+      setUpdatingShift(false)
+    }
+  }
+
+  const handleDeleteShift = async () => {
+    if (!selectedShift) {
+      return
+    }
+
+    const confirmed = window.confirm('Er du sikker på at du vil slette dette skiftet?')
+    if (!confirmed) {
+      return
+    }
+
+    setDeleteBusy(true)
+    setDetailNotice(null)
+
+    try {
+      const response = await fetch(`/api/shifts/${selectedShift.id}`, {
+        method: 'DELETE',
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Kunne ikke slette skiftet')
+      }
+
+      closeShiftDetail()
+      await fetchShifts()
+    } catch (err) {
+      setDetailNotice({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Kunne ikke slette skiftet',
+      })
+    } finally {
+      setDeleteBusy(false)
+    }
   }
 
   const renderSignupTable = (shift: Shift) => (
@@ -627,48 +733,14 @@ export default function AdminPage() {
                 </span>
                 <span className={`${styles.legendItem} ${styles.legendFull}`}>Fullt</span>
               </div>
-
-              {selectedShift ? (
-                <div className={styles.selectedShiftCard}>
-                  <div className={styles.selectedShiftHeader}>
-                    <div>
-                      <h3>{selectedShift.title}</h3>
-                      <p>
-                        {capitalise(formatDateLong(selectedShift.date))} ·{' '}
-                        {SHIFT_TYPE_LABELS[selectedShift.type]} · {selectedShift.startTime}–
-                        {selectedShift.endTime}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      className={styles.buttonSecondary}
-                      onClick={() => setSelectedShift(null)}
-                    >
-                      Lukk
-                    </button>
-                  </div>
-                  {selectedShift.notes && (
-                    <p className={styles.notes}>{selectedShift.notes}</p>
-                  )}
-                  <p className={styles.selectedShiftCount}>
-                    {selectedShift.signupCount} / {selectedShift.maxVolunteers} påmeldt
-                  </p>
-                  <p className={styles.selectedShiftWaitlist}>
-                    Venteliste: {selectedShift.waitlistCount}
-                  </p>
-                  {renderSignupTable(selectedShift)}
-                </div>
-              ) : (
-                <p className={styles.calendarHint}>
-                  Klikk på et skift i kalenderen for å se påmeldte frivillige.
-                </p>
-              )}
+              <p className={styles.calendarHint}>
+                Klikk på et skift i kalenderen for å åpne detaljvisningen.
+              </p>
             </>
           ) : (
             <div className={styles.shiftsList}>
               {shifts.map((shift) => {
                 const isFull = shift.signupCount >= shift.maxVolunteers
-                const isExpanded = selectedShift?.id === shift.id
 
                 return (
                   <div key={shift.id} className={styles.shiftCard}>
@@ -698,21 +770,17 @@ export default function AdminPage() {
                         </span>
                       </div>
                     </div>
-
-                    {shift.signupCount > 0 || shift.waitlistCount > 0 ? (
-                      <div className={styles.signupsList}>
-                        <button
-                          className={styles.toggleButton}
-                          onClick={() => setSelectedShift(isExpanded ? null : shift)}
-                        >
-                          {isExpanded ? '▼' : '▶'} Se påmeldte ({shift.signupCount}) / venteliste ({shift.waitlistCount})
-                        </button>
-
-                        {isExpanded && renderSignupTable(shift)}
-                      </div>
-                    ) : (
+                    <div className={styles.cardActions}>
+                      <button
+                        className={styles.buttonSecondary}
+                        onClick={() => openAdminShiftDetails(shift)}
+                      >
+                        Rediger
+                      </button>
+                    </div>
+                    {shift.signupCount === 0 && shift.waitlistCount === 0 ? (
                       <p className={styles.noSignups}>Ingen påmeldte eller venteliste.</p>
-                    )}
+                    ) : null}
                   </div>
                 )
               })}
@@ -720,6 +788,200 @@ export default function AdminPage() {
           )}
         </div>
       )}
+
+      {selectedShift && editFormData ? (
+        <div className={styles.modal}>
+          <div className={styles.modalContent}>
+            <div className={styles.modalHeader}>
+              <h2>Rediger skift</h2>
+              <button
+                type="button"
+                className={styles.buttonSecondary}
+                onClick={closeShiftDetail}
+              >
+                Lukk
+              </button>
+            </div>
+
+            <p className={styles.detailMeta}>
+              {capitalise(formatDateLong(selectedShift.date))} · {SHIFT_TYPE_LABELS[selectedShift.type]}
+            </p>
+
+            {detailNotice ? (
+              <div
+                className={
+                  detailNotice.type === 'success' ? styles.success : styles.error
+                }
+              >
+                {detailNotice.text}
+              </div>
+            ) : null}
+
+            <form onSubmit={handleUpdateShift} className={styles.form}>
+              <div className={styles.field}>
+                <label htmlFor="edit-title">Tittel *</label>
+                <input
+                  id="edit-title"
+                  type="text"
+                  value={editFormData.title}
+                  onChange={(event) =>
+                    setEditFormData((prev) =>
+                      prev ? { ...prev, title: event.target.value } : prev
+                    )
+                  }
+                  required
+                  disabled={updatingShift}
+                />
+              </div>
+
+              <div className={styles.field}>
+                <label htmlFor="edit-type">Skifttype *</label>
+                <select
+                  id="edit-type"
+                  value={editFormData.type}
+                  onChange={(event) =>
+                    setEditFormData((prev) =>
+                      prev
+                        ? { ...prev, type: event.target.value as ShiftTypeKey }
+                        : prev
+                    )
+                  }
+                  required
+                  disabled={updatingShift}
+                >
+                  <option value="MORGEN">Morgen</option>
+                  <option value="KVELD">Kveld</option>
+                </select>
+              </div>
+
+              <div className={styles.field}>
+                <label htmlFor="edit-date">Dato *</label>
+                <input
+                  id="edit-date"
+                  type="date"
+                  value={editFormData.date}
+                  onChange={(event) =>
+                    setEditFormData((prev) =>
+                      prev ? { ...prev, date: event.target.value } : prev
+                    )
+                  }
+                  required
+                  disabled={updatingShift}
+                />
+              </div>
+
+              <div className={styles.row}>
+                <div className={styles.field}>
+                  <label htmlFor="edit-start">Starttid *</label>
+                  <input
+                    id="edit-start"
+                    type="time"
+                    value={editFormData.startTime}
+                    onChange={(event) =>
+                      setEditFormData((prev) =>
+                        prev ? { ...prev, startTime: event.target.value } : prev
+                      )
+                    }
+                    required
+                    disabled={updatingShift}
+                  />
+                </div>
+
+                <div className={styles.field}>
+                  <label htmlFor="edit-end">Sluttid *</label>
+                  <input
+                    id="edit-end"
+                    type="time"
+                    value={editFormData.endTime}
+                    onChange={(event) =>
+                      setEditFormData((prev) =>
+                        prev ? { ...prev, endTime: event.target.value } : prev
+                      )
+                    }
+                    required
+                    disabled={updatingShift}
+                  />
+                </div>
+              </div>
+
+              <div className={styles.field}>
+                <label htmlFor="edit-max">Maks antall frivillige *</label>
+                <input
+                  id="edit-max"
+                  type="number"
+                  min="1"
+                  value={editFormData.maxVolunteers}
+                  onChange={(event) => {
+                    const parsed = parseInt(event.target.value, 10)
+                    setEditFormData((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            maxVolunteers: Number.isNaN(parsed)
+                              ? 1
+                              : Math.max(1, parsed),
+                          }
+                        : prev
+                    )
+                  }}
+                  required
+                  disabled={updatingShift}
+                />
+              </div>
+
+              <div className={styles.field}>
+                <label htmlFor="edit-description">Beskrivelse</label>
+                <textarea
+                  id="edit-description"
+                  rows={3}
+                  value={editFormData.description}
+                  onChange={(event) =>
+                    setEditFormData((prev) =>
+                      prev ? { ...prev, description: event.target.value } : prev
+                    )
+                  }
+                  disabled={updatingShift}
+                />
+              </div>
+
+              <div className={styles.field}>
+                <label htmlFor="edit-notes">Interne notater</label>
+                <textarea
+                  id="edit-notes"
+                  rows={2}
+                  value={editFormData.notes}
+                  onChange={(event) =>
+                    setEditFormData((prev) =>
+                      prev ? { ...prev, notes: event.target.value } : prev
+                    )
+                  }
+                  disabled={updatingShift}
+                />
+              </div>
+
+              <div className={styles.modalButtons}>
+                <button
+                  type="button"
+                  className={styles.dangerButton}
+                  onClick={handleDeleteShift}
+                  disabled={deleteBusy}
+                >
+                  {deleteBusy ? 'Sletter…' : 'Slett skift'}
+                </button>
+                <button
+                  type="submit"
+                  className={styles.button}
+                  disabled={updatingShift}
+                >
+                  {updatingShift ? 'Lagrer…' : 'Lagre endringer'}
+                </button>
+              </div>
+            </form>
+
+            <div className={styles.detailTables}>{renderSignupTable(selectedShift)}</div>
+          </div>
+        </div>
+      ) : null}
 
       {/* Create Shift Modal */}
       {showCreateModal && (
