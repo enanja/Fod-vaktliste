@@ -341,8 +341,28 @@
 
 .modalButtons {
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   justify-content: flex-end;
+}
+
+.modalButtons .button,
+.modalButtons .buttonSecondary {
+  width: auto;
+  min-width: 150px;
+  margin-top: 0;
+}
+
+.detailStats {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: #f7fafc;
+  color: #2d3748;
+  font-size: 14px;
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 16px;
 }
 
 .error {

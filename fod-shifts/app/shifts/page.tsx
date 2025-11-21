@@ -27,6 +27,7 @@ interface Shift {
   type: ShiftTypeKey
   maxVolunteers: number
   signupCount: number
+  createdAt: string
   signups: Array<{
     id: number
     userId: number
@@ -58,6 +59,10 @@ export default function ShiftsPage() {
   const [shifts, setShifts] = useState<Shift[]>([])
   const [loadingShifts, setLoadingShifts] = useState(true)
   const [signupModal, setSignupModal] = useState<{
+    show: boolean
+    shift: Shift | null
+  }>({ show: false, shift: null })
+  const [detailModal, setDetailModal] = useState<{
     show: boolean
     shift: Shift | null
   }>({ show: false, shift: null })
@@ -111,13 +116,26 @@ export default function ShiftsPage() {
     value.length > 0 ? value[0].toUpperCase() + value.slice(1) : value
 
   const shiftsByDate = useMemo(() => {
-    const map = new Map<string, Partial<Record<ShiftTypeKey, Shift>>>()
+    const map = new Map<string, Record<ShiftTypeKey, Shift[]>>()
+
     shifts.forEach((shift) => {
       const key = shift.date.slice(0, 10)
-      const entry = map.get(key) ?? {}
-      entry[shift.type] = shift
-      map.set(key, entry)
+
+      if (!map.has(key)) {
+        map.set(key, { MORGEN: [], KVELD: [] })
+      }
+
+      const bucket = map.get(key)!
+      bucket[shift.type].push(shift)
+      bucket[shift.type].sort((a, b) => {
+        const createdDiff = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        if (createdDiff !== 0) {
+          return createdDiff
+        }
+        return a.id - b.id
+      })
     })
+
     return map
   }, [shifts])
 
@@ -166,7 +184,16 @@ export default function ShiftsPage() {
       day: 'numeric',
     })
 
+  const openShiftDetails = (shift: Shift) => {
+    setDetailModal({ show: true, shift })
+  }
+
+  const closeDetailModal = () => {
+    setDetailModal({ show: false, shift: null })
+  }
+
   const openSignupModal = (shift: Shift) => {
+    closeDetailModal()
     setSignupModal({ show: true, shift })
     setComment('')
     setError('')
@@ -212,6 +239,7 @@ export default function ShiftsPage() {
 
   const handleJoinWaitlist = async (shift: Shift) => {
     setWaitlistBusy(shift.id)
+    const shouldCloseDetail = detailModal.shift?.id === shift.id
 
     try {
       const response = await fetch('/api/waitlist', {
@@ -227,6 +255,9 @@ export default function ShiftsPage() {
       }
 
       alert('Du er satt på ventelisten.')
+      if (shouldCloseDetail) {
+        closeDetailModal()
+      }
       fetchShifts()
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Noe gikk galt')
@@ -237,6 +268,7 @@ export default function ShiftsPage() {
 
   const handleLeaveWaitlist = async (shift: Shift) => {
     setWaitlistBusy(shift.id)
+    const shouldCloseDetail = detailModal.shift?.id === shift.id
 
     try {
       const response = await fetch('/api/waitlist', {
@@ -252,6 +284,9 @@ export default function ShiftsPage() {
       }
 
       alert('Du er fjernet fra ventelisten.')
+      if (shouldCloseDetail) {
+        closeDetailModal()
+      }
       fetchShifts()
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Noe gikk galt')
@@ -370,83 +405,73 @@ export default function ShiftsPage() {
 
                         <div className={styles.calendarCellShifts}>
                           {SHIFT_TYPES.map((shiftType) => {
-                            const shift = dayShifts?.[shiftType] ?? null
-                            const isFull =
-                              shift !== null && shift.signupCount >= shift.maxVolunteers
-                            const isSigned = shift ? isUserSignedUp(shift) : false
-                            const isWaitlisted = shift ? isUserWaitlisted(shift) : false
-                            const classNames = [styles.calendarShift]
-
-                            if (!shift) {
-                              classNames.push(styles.calendarShiftEmpty)
-                            } else if (isWaitlisted) {
-                              classNames.push(styles.calendarShiftWaitlisted)
-                            } else if (isSigned) {
-                              classNames.push(styles.calendarShiftMine)
-                            } else if (isFull) {
-                              classNames.push(styles.calendarShiftFull)
-                            } else {
-                              classNames.push(styles.calendarShiftAvailable)
-                            }
-
-                            const disabled =
-                              !shift || waitlistBusy === shift.id || isSigned
+                            const shiftGroup = dayShifts?.[shiftType] ?? []
+                            const totalShifts = shiftGroup.length
+                            const availableShifts = shiftGroup.filter(
+                              (item) => item.signupCount < item.maxVolunteers
+                            ).length
+                            const summaryText =
+                              totalShifts === 0
+                                ? 'Ingen skift'
+                                : `${totalShifts} skift · ${availableShifts} ledig${availableShifts === 1 ? '' : 'e'}`
 
                             return (
-                              <button
-                                key={shiftType}
-                                type="button"
-                                className={classNames.join(' ')}
-                                onClick={() => {
-                                  if (!shift || waitlistBusy === shift.id) return
+                              <div key={shiftType} className={styles.shiftGroup}>
+                                <div className={styles.shiftGroupHeader}>
+                                  <span>{SHIFT_TYPE_LABELS[shiftType]}</span>
+                                  <span className={styles.shiftGroupSummary}>{summaryText}</span>
+                                </div>
+                                <div className={styles.calendarShiftList}>
+                                  {shiftGroup.length === 0 ? (
+                                    <div className={styles.calendarShiftEmptyBadge}>Ingen skift</div>
+                                  ) : (
+                                    // Render every overlapping shift as a compact badge so even busy slots stay readable.
+                                    shiftGroup.map((shift) => {
+                                      const isFull = shift.signupCount >= shift.maxVolunteers
+                                      const isSigned = isUserSignedUp(shift)
+                                      const isWaitlisted = isUserWaitlisted(shift)
+                                      const classNames = [styles.calendarShift]
 
-                                  if (isSigned) {
-                                    return
-                                  }
+                                      if (isWaitlisted) {
+                                        classNames.push(styles.calendarShiftWaitlisted)
+                                      } else if (isSigned) {
+                                        classNames.push(styles.calendarShiftMine)
+                                      } else if (isFull) {
+                                        classNames.push(styles.calendarShiftFull)
+                                      } else {
+                                        classNames.push(styles.calendarShiftAvailable)
+                                      }
 
-                                  if (isWaitlisted) {
-                                    handleLeaveWaitlist(shift)
-                                    return
-                                  }
-
-                                  if (isFull) {
-                                    handleJoinWaitlist(shift)
-                                    return
-                                  }
-
-                                  openSignupModal(shift)
-                                }}
-                                disabled={disabled}
-                                title={
-                                  shift
-                                    ? `${SHIFT_TYPE_LABELS[shiftType]} · ${shift.startTime}–${shift.endTime} · ${shift.signupCount}/${shift.maxVolunteers} påmeldt · Venteliste: ${shift.waitlistCount}` +
-                                      (isSigned
-                                        ? ' · Du er påmeldt'
-                                        : isWaitlisted
-                                          ? ' · Du står på ventelisten'
-                                          : isFull
-                                            ? ' · Fullt'
-                                            : '')
-                                    : 'Ingen skift'
-                                }
-                              >
-                                <span className={styles.shiftLabel}>
-                                  {SHIFT_TYPE_LABELS[shiftType]}
-                                </span>
-                                {shift ? (
-                                  <>
-                                    <span className={styles.shiftTitle}>{shift.title}</span>
-                                    <span className={styles.shiftTime}>
-                                      {shift.startTime}–{shift.endTime}
-                                    </span>
-                                    <span className={styles.shiftCount}>
-                                      {shift.signupCount}/{shift.maxVolunteers}
-                                    </span>
-                                  </>
-                                ) : (
-                                  <span className={styles.shiftEmptyText}>Ingen skift</span>
-                                )}
-                              </button>
+                                      return (
+                                        <button
+                                          key={shift.id}
+                                          type="button"
+                                          className={classNames.join(' ')}
+                                          onClick={() => openShiftDetails(shift)}
+                                          title={`${shift.title} · ${shift.startTime}–${shift.endTime} · ${shift.signupCount}/${shift.maxVolunteers} påmeldt`}
+                                        >
+                                          <span className={styles.shiftRow}>
+                                            <span className={styles.shiftTitle}>{shift.title}</span>
+                                            <span className={styles.shiftCount}>
+                                              {shift.signupCount}/{shift.maxVolunteers}
+                                            </span>
+                                          </span>
+                                          <span className={styles.shiftMeta}>
+                                            {shift.startTime}–{shift.endTime}
+                                            {isSigned
+                                              ? ' · Påmeldt'
+                                              : isWaitlisted
+                                                ? ' · Venteliste'
+                                                : isFull
+                                                  ? ' · Fullt'
+                                                  : ' · Ledig'}
+                                          </span>
+                                        </button>
+                                      )
+                                    })
+                                  )}
+                                </div>
+                              </div>
                             )
                           })}
                         </div>
@@ -470,7 +495,7 @@ export default function ShiftsPage() {
               </div>
 
               <p className={styles.calendarHint}>
-                Klikk på et ledig skift for å melde deg på.
+                Klikk på et skift for å se detaljer og melde deg på eller sette deg på venteliste.
               </p>
             </>
           ) : (
@@ -539,6 +564,83 @@ export default function ShiftsPage() {
               })}
             </div>
           )}
+        </div>
+      )}
+
+      {detailModal.show && detailModal.shift && (
+        <div className={styles.modal}>
+          <div className={styles.modalContent}>
+            <h2>{detailModal.shift.title}</h2>
+            <p>
+              {capitalise(formatDateLong(detailModal.shift.date))} · {detailModal.shift.startTime}–
+              {detailModal.shift.endTime}
+            </p>
+
+            <div className={styles.detailStats}>
+              <span>
+                👥 {detailModal.shift.signupCount}/{detailModal.shift.maxVolunteers} påmeldt
+                {detailModal.shift.signupCount >= detailModal.shift.maxVolunteers ? ' (FULLT)' : ''}
+              </span>
+              <span>⏳ Venteliste: {detailModal.shift.waitlistCount}</span>
+            </div>
+
+            {detailModal.shift.description ? (
+              <p className={styles.description}>{detailModal.shift.description}</p>
+            ) : null}
+
+            {detailModal.shift.notes ? (
+              <p className={styles.notes}>{detailModal.shift.notes}</p>
+            ) : null}
+
+            {isUserSignedUp(detailModal.shift) ? (
+              <div className={styles.signedUp}>✓ Du er påmeldt</div>
+            ) : null}
+
+            {isUserWaitlisted(detailModal.shift) ? (
+              <div className={styles.waitlisted}>⏳ Du står på ventelisten</div>
+            ) : null}
+
+            <div className={styles.modalButtons}>
+              <button
+                className={styles.buttonSecondary}
+                onClick={closeDetailModal}
+                disabled={waitlistBusy === detailModal.shift.id}
+              >
+                Lukk
+              </button>
+              {!isUserSignedUp(detailModal.shift) && !isUserWaitlisted(detailModal.shift) &&
+              detailModal.shift.signupCount < detailModal.shift.maxVolunteers ? (
+                <button
+                  className={styles.button}
+                  onClick={() => openSignupModal(detailModal.shift!)}
+                >
+                  Meld meg på
+                </button>
+              ) : null}
+
+              {!isUserSignedUp(detailModal.shift) &&
+              detailModal.shift.signupCount >= detailModal.shift.maxVolunteers &&
+              !isUserWaitlisted(detailModal.shift) ? (
+                <button
+                  className={styles.button}
+                  onClick={() => handleJoinWaitlist(detailModal.shift!)}
+                  disabled={waitlistBusy === detailModal.shift.id}
+                >
+                  {waitlistBusy === detailModal.shift.id ? 'Legger til...' : 'Sett meg på venteliste'}
+                </button>
+              ) : null}
+
+              {isUserWaitlisted(detailModal.shift) ? (
+                <button
+                  className={styles.button}
+                  onClick={() => handleLeaveWaitlist(detailModal.shift!)}
+                  disabled={waitlistBusy === detailModal.shift.id}
+                >
+                  {waitlistBusy === detailModal.shift.id ? 'Fjerner...' : 'Fjern meg fra ventelisten'}
+                </button>
+              ) : null}
+            </div>
+          </div>
         </div>
       )}
 
