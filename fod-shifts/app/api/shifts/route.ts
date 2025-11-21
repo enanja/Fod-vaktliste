@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { SignupStatus } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/session'
+import { isShiftInPast } from '@/lib/signups'
 
 // GET - Hent alle skift
 export async function GET() {
@@ -76,6 +77,7 @@ export async function GET() {
           createdAt: entry.createdAt,
           user: entry.user,
         })),
+        isPast: isShiftInPast(shift),
       }
     })
 

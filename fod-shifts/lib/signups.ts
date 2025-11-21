@@ -137,6 +137,15 @@ export function getShiftStartDate(
   return new Date(baseDate.getTime() - offsetMinutes * 60 * 1000)
 }
 
+export function isShiftInPast(
+  shift: { date: Date; startTime: string | null; endTime: string | null },
+  now = new Date(),
+  timeZone = OSLO_TIMEZONE
+) {
+  const shiftEnd = getShiftEndDate(shift, timeZone)
+  return shiftEnd.getTime() <= now.getTime()
+}
+
 // Promote the longest-waiting volunteer when capacity frees up.
 export async function promoteNextWaitlistedVolunteer(
   shiftId: number,
@@ -173,9 +182,10 @@ export async function promoteNextWaitlistedVolunteer(
     return null
   }
 
-  const entry = shift.waitlistEntries.find(
-    (candidate) => !candidate.user?.isBlocked && candidate.user?.status !== 'blocked'
-  )
+  const entry = shift.waitlistEntries.find((candidate) => {
+    const candidateUser = candidate.user as { isBlocked?: boolean | null; status?: string | null }
+    return !candidateUser?.isBlocked && candidateUser?.status !== 'blocked'
+  })
 
   if (!entry) {
     return null

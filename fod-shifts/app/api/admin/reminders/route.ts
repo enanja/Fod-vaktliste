@@ -15,6 +15,10 @@ export async function POST(request: Request) {
 
     const result = await sendUpcomingShiftReminders(windowMinutes)
 
+    console.log(
+      `[reminders] Admin ${session.userId} trigget utsending: sent=${result.sent}, skipped=${result.skipped}, failures=${result.failures.length}`
+    )
+
     return NextResponse.json({
       sent: result.sent,
       skipped: result.skipped,

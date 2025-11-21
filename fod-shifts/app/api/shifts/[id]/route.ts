@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server'
 import { SignupStatus } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/session'
+import { isShiftInPast } from '@/lib/signups'
 
 const prismaClient = prisma as any
 
@@ -70,6 +71,7 @@ const formatShiftResponse = (shift: any) => ({
     createdAt: entry.createdAt,
     user: entry.user,
   })),
+  isPast: isShiftInPast(shift),
 })
 
 export async function GET(

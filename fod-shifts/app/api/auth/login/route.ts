@@ -1,12 +1,17 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 export const runtime = "nodejs";
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcrypt'
 import { getSession } from '@/lib/session'
 
+const prismaClient = prisma as any
+
 export async function POST(request: Request) {
   try {
-    const { email, password } = await request.json()
+    const { email: rawEmail, password } = await request.json()
+
+    const email = typeof rawEmail === 'string' ? rawEmail.trim().toLowerCase() : ''
 
     // Valider input
     if (!email || !password) {
@@ -17,7 +22,7 @@ export async function POST(request: Request) {
     }
 
     // Finn brukeren
-    const user = await prisma.user.findUnique({ where: { email } })
+    const user = await prismaClient.user.findUnique({ where: { email } })
 
     if (!user) {
       return NextResponse.json(

@@ -16,7 +16,8 @@ function getBaseUrl() {
 
 export async function POST(request: Request) {
   try {
-    const { email } = await request.json()
+    const { email: rawEmail } = await request.json()
+    const email = typeof rawEmail === 'string' ? rawEmail.trim().toLowerCase() : ''
 
     if (!email) {
       return NextResponse.json(

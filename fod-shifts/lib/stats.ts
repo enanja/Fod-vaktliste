@@ -1,6 +1,7 @@
-import { Prisma, SignupStatus } from '@prisma/client'
+import { Prisma, SignupStatus, ShiftType } from '@prisma/client'
 import { fetchTimelogData, TimelogFilters } from './timelog'
 import { prisma } from './prisma'
+import { isShiftInPast } from './signups'
 
 export interface AdminStatsFilters extends TimelogFilters {
   minHours?: number
@@ -30,10 +31,25 @@ export interface UnderfilledShift {
   vacancy: number
 }
 
+export interface ShiftCapacitySummary {
+  shiftId: number
+  title: string
+  date: Date
+  startTime: string
+  endTime: string
+  type: ShiftType
+  maxVolunteers: number
+  confirmedCount: number
+  waitlistCount: number
+  vacancy: number
+  isPast: boolean
+}
+
 export interface AdminStatsResult {
   monthlyTotals: MonthlyTotal[]
   activeVolunteers: ActiveVolunteerSummary[]
   underfilledShifts: UnderfilledShift[]
+  shiftSummaries: ShiftCapacitySummary[]
 }
 
 function buildShiftFilter(filters: TimelogFilters): Prisma.ShiftWhereInput {
@@ -109,25 +125,34 @@ export async function computeAdminStats(
       },
     },
     orderBy: {
-      date: 'desc',
+      date: 'asc',
     },
-    take: 200,
   })
 
-  const underfilledShifts: UnderfilledShift[] = shifts
-    .map((shift) => {
-      const confirmedCount = shift.signups.length
-      const vacancy = Math.max(shift.maxVolunteers - confirmedCount, 0)
-      return {
-        shiftId: shift.id,
-        title: shift.title,
+  const shiftSummaries: ShiftCapacitySummary[] = shifts.map((shift) => {
+    const confirmedCount = shift.signups.length
+    const vacancy = Math.max(shift.maxVolunteers - confirmedCount, 0)
+
+    return {
+      shiftId: shift.id,
+      title: shift.title,
+      date: shift.date,
+      startTime: shift.startTime,
+      endTime: shift.endTime,
+      type: shift.type,
+      maxVolunteers: shift.maxVolunteers,
+      confirmedCount,
+      waitlistCount: shift.waitlistEntries.length,
+      vacancy,
+      isPast: isShiftInPast({
         date: shift.date,
-        maxVolunteers: shift.maxVolunteers,
-        confirmedCount,
-        waitlistCount: shift.waitlistEntries.length,
-        vacancy,
-      }
-    })
+        startTime: shift.startTime,
+        endTime: shift.endTime,
+      }),
+    }
+  })
+
+  const underfilledShifts: UnderfilledShift[] = shiftSummaries
     .filter((item) => item.vacancy > 0)
     .sort((a, b) => b.vacancy - a.vacancy)
     .slice(0, 10)
@@ -136,5 +161,6 @@ export async function computeAdminStats(
     monthlyTotals,
     activeVolunteers,
     underfilledShifts,
+    shiftSummaries,
   }
 }

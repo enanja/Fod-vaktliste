@@ -4,6 +4,7 @@ import { Prisma, SignupStatus } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/session'
 import { sendAdminSignupNotificationEmail } from '@/lib/email'
+import { isShiftInPast } from '@/lib/signups'
 
 export async function POST(request: Request) {
   try {
@@ -50,6 +51,10 @@ export async function POST(request: Request) {
 
       if (!shift) {
         throw new Error('SHIFT_NOT_FOUND')
+      }
+
+      if (isShiftInPast(shift)) {
+        throw new Error('SHIFT_IN_PAST')
       }
 
       if (shift.signups.length < shift.maxVolunteers) {
@@ -139,6 +144,11 @@ export async function POST(request: Request) {
         case 'ALREADY_WAITLISTED':
           return NextResponse.json(
             { error: 'Du står allerede på ventelisten for dette skiftet' },
+            { status: 400 }
+          )
+        case 'SHIFT_IN_PAST':
+          return NextResponse.json(
+            { error: 'Skiftet er allerede gjennomført.' },
             { status: 400 }
           )
         default:

@@ -23,9 +23,42 @@
   color: #718096;
 }
 
+.navWrapper {
+  width: 100%;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.navWrapper::-webkit-scrollbar {
+  height: 6px;
+}
+
+.navWrapper::-webkit-scrollbar-thumb {
+  background: rgba(45, 55, 72, 0.35);
+  border-radius: 9999px;
+}
+
+.navWrapper::-webkit-scrollbar-track {
+  background: transparent;
+}
+
 .nav {
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
+  align-items: center;
+  padding-bottom: 4px;
+}
+
+.nav a,
+.nav button {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 900px) {
+  .nav {
+    justify-content: flex-start;
+  }
 }
 
 .button {
@@ -499,6 +532,11 @@
 .calendarShiftFull {
   background: #fed7d7;
   color: #742a2a;
+}
+
+.calendarShiftPast {
+  background: #e2e8f0;
+  color: #4a5568;
 }
 
 .calendarShiftEmpty {

@@ -75,6 +75,15 @@
   margin-top: 0;
 }
 
+.cardHeaderRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
 .tableWrapper {
   overflow-x: auto;
 }
@@ -123,4 +132,46 @@
 
 .statCard h3 {
   margin: 0 0 12px;
+}
+
+.timeFilters {
+  display: inline-flex;
+  background: #edf2f7;
+  border-radius: 9999px;
+  padding: 4px;
+  gap: 4px;
+}
+
+.timeFilterButton {
+  border: none;
+  background: transparent;
+  color: #2d3748;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.timeFilterButton:hover {
+  background: rgba(45, 55, 72, 0.1);
+}
+
+.timeFilterButtonActive {
+  background: #2b6cb0;
+  color: #fff;
+  box-shadow: 0 1px 3px rgba(26, 32, 44, 0.2);
+}
+
+.capacitySection {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.capacitySection h3 {
+  margin: 0;
+  font-size: 16px;
 }

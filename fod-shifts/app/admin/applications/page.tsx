@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import styles from '../admin.module.css'
 
-type ApplicationStatus = 'pending' | 'approved' | 'rejected'
+type ApplicationStatus = 'pending' | 'approved' | 'rejected' | 'completed'
 
 interface VolunteerApplication {
   id: string
@@ -134,8 +134,14 @@ export default function AdminApplicationsPage() {
               </tr>
             </thead>
             <tbody>
-              {applications.map((application) => (
-                <tr key={application.id}>
+              {applications.map((application) => {
+                const isProcessing = processingId === application.id
+                const isApproved = application.status === 'approved'
+                const isCompleted = application.status === 'completed'
+                const isApproveDisabled = isProcessing || isApproved || isCompleted
+
+                return (
+                  <tr key={application.id}>
                     <td>{application.name}</td>
                     <td>{application.email}</td>
                     <td>{application.phone || '—'}</td>
@@ -154,23 +160,23 @@ export default function AdminApplicationsPage() {
                       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                         <button
                           className={styles.button}
-                          disabled={processingId === application.id || application.status === 'approved'}
+                          disabled={isApproveDisabled}
                           onClick={() => handleAction(application.id, 'approve')}
                         >
-                          {processingId === application.id && application.status !== 'approved'
+                          {isProcessing && !isApproved && !isCompleted
                             ? 'Sender e-post...'
                             : 'Godkjenn og send e-post'}
                         </button>
                         <button
                           className={styles.buttonSecondary}
-                          disabled={processingId === application.id || application.status === 'rejected'}
+                          disabled={isProcessing || application.status === 'rejected'}
                           onClick={() => handleAction(application.id, 'reject')}
                         >
-                          {processingId === application.id && application.status !== 'rejected'
+                          {isProcessing && application.status !== 'rejected'
                             ? 'Avslår...'
                             : 'Avslå'}
                         </button>
-                        {application.status !== 'approved' ? (
+                        {!isApproved && !isCompleted ? (
                           <span style={{ fontSize: '12px', color: '#4a5568' }}>
                             Godkjenning åpner registrering for søkeren.
                           </span>
@@ -178,7 +184,8 @@ export default function AdminApplicationsPage() {
                       </div>
                     </td>
                   </tr>
-              ))}
+                )
+              })}
             </tbody>
           </table>
         </div>

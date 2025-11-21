@@ -14,6 +14,10 @@ const SHIFT_TYPE_LABELS: Record<ShiftTypeKey, string> = {
   MORGEN: 'Morgenskift',
   KVELD: 'Kveldsskift',
 }
+const DEFAULT_SHIFT_TIMES: Record<ShiftTypeKey, { start: string; end: string }> = {
+  MORGEN: { start: '10:00', end: '13:00' },
+  KVELD: { start: '18:00', end: '21:00' },
+}
 const WEEKDAY_LABELS = ['Man', 'Tir', 'Ons', 'Tor', 'Fre', 'Lør', 'Søn']
 
 interface Shift {
@@ -27,6 +31,7 @@ interface Shift {
   type: ShiftTypeKey
   maxVolunteers: number
   signupCount: number
+  isPast: boolean
   signups: Array<{
     id: number
     userId: number
@@ -93,8 +98,8 @@ export default function AdminPage() {
       description: '',
       notes: '',
       date: '',
-      startTime: '',
-      endTime: '',
+      startTime: DEFAULT_SHIFT_TIMES.MORGEN.start,
+      endTime: DEFAULT_SHIFT_TIMES.MORGEN.end,
       maxVolunteers: 5,
       type: 'MORGEN',
     })
@@ -423,7 +428,9 @@ export default function AdminPage() {
         throw new Error(data.error || 'Kunne ikke sende påminnelser')
       }
 
-      setReminderStatus(`Sendte ${data.sent} påminnelser. Hoppet over ${data.skipped}.`)
+      setReminderStatus(
+        `Sendte ${data.sent} påminnelser. Hoppet over ${data.skipped}. Feil: ${data.failures?.length ?? 0}.`
+      )
     } catch (err) {
       setReminderStatus(err instanceof Error ? err.message : 'Kunne ikke sende påminnelser')
     } finally {
@@ -512,8 +519,8 @@ export default function AdminPage() {
         description: '',
         notes: '',
         date: '',
-        startTime: '',
-        endTime: '',
+        startTime: DEFAULT_SHIFT_TIMES.MORGEN.start,
+        endTime: DEFAULT_SHIFT_TIMES.MORGEN.end,
         maxVolunteers: 5,
         type: 'MORGEN',
       })
@@ -540,48 +547,53 @@ export default function AdminPage() {
           <h1>Admin-panel</h1>
           <p>Velkommen, {user.name}</p>
         </div>
-        <div className={styles.nav}>
-          <button className={styles.button} onClick={() => setShowCreateModal(true)}>
-            + Opprett nytt skift
-          </button>
-          <button className={styles.buttonSecondary} onClick={() => router.push('/admin/timelog')}>
-            Timelogger
-          </button>
-          <button
-            className={styles.buttonSecondary}
-            onClick={() => router.push('/admin/volunteers')}
-          >
-            Frivillige
-          </button>
-          <button
-            className={styles.buttonSecondary}
-            onClick={() => router.push('/admin/applications')}
-          >
-            Søknader
-          </button>
-          <button
-            className={styles.buttonSecondary}
-            onClick={() => router.push('/admin/signups')}
-          >
-            Påmeldinger
-          </button>
-          <button
-            className={styles.buttonSecondary}
-            onClick={() => router.push('/admin/stats')}
-          >
-            Statistikk
-          </button>
-          <button
-            className={styles.buttonSecondary}
-            onClick={handleSendReminders}
-            disabled={sendingReminders}
-            title="Sender e-postpåminnelser til frivillige som har skift om 24 timer"
-          >
-            {sendingReminders ? 'Sender…' : 'Send påminnelser'}
-          </button>
-          <button className={styles.buttonSecondary} onClick={() => logout()}>
-            Logg ut
-          </button>
+        <div className={styles.navWrapper}>
+          <div className={styles.nav}>
+            <button className={styles.button} onClick={() => setShowCreateModal(true)}>
+              + Opprett nytt skift
+            </button>
+            <button
+              className={styles.buttonSecondary}
+              onClick={() => router.push('/admin/timelog')}
+            >
+              Timelogger
+            </button>
+            <button
+              className={styles.buttonSecondary}
+              onClick={() => router.push('/admin/volunteers')}
+            >
+              Frivillige
+            </button>
+            <button
+              className={styles.buttonSecondary}
+              onClick={() => router.push('/admin/applications')}
+            >
+              Søknader
+            </button>
+            <button
+              className={styles.buttonSecondary}
+              onClick={() => router.push('/admin/signups')}
+            >
+              Påmeldinger
+            </button>
+            <button
+              className={styles.buttonSecondary}
+              onClick={() => router.push('/admin/stats')}
+            >
+              Statistikk
+            </button>
+            <button
+              className={styles.buttonSecondary}
+              onClick={handleSendReminders}
+              disabled={sendingReminders}
+              title="Sender e-postpåminnelser til frivillige som har skift om 24 timer"
+            >
+              {sendingReminders ? 'Sender…' : 'Send påminnelser'}
+            </button>
+            <button className={styles.buttonSecondary} onClick={() => logout()}>
+              Logg ut
+            </button>
+          </div>
         </div>
       </header>
 
@@ -693,17 +705,10 @@ export default function AdminPage() {
                               )
                             }
 
-                            const totalShifts = shiftGroup.length
-                            const availableShifts = shiftGroup.filter(
-                              (item) => item.signupCount < item.maxVolunteers
-                            ).length
-                            const summaryText = `${totalShifts} skift · ${availableShifts} ledig${availableShifts === 1 ? '' : 'e'}`
-
                             return (
                               <div key={shiftType} className={styles.shiftGroup}>
                                 <div className={styles.shiftGroupHeader}>
                                   <span>{SHIFT_TYPE_LABELS[shiftType]}</span>
-                                  <span className={styles.shiftGroupSummary}>{summaryText}</span>
                                 </div>
                                 <div className={styles.calendarShiftList}>
                                   {/* Render every overlapping admin shift as a compact badge for quick scanning. */}
@@ -711,7 +716,9 @@ export default function AdminPage() {
                                     const isFull = shift.signupCount >= shift.maxVolunteers
                                     const classNames = [styles.calendarShift]
 
-                                    if (isFull) {
+                                    if (shift.isPast) {
+                                      classNames.push(styles.calendarShiftPast)
+                                    } else if (isFull) {
                                       classNames.push(styles.calendarShiftFull)
                                     } else {
                                       classNames.push(styles.calendarShiftAvailable)
@@ -733,6 +740,7 @@ export default function AdminPage() {
                                         </span>
                                         <span className={styles.shiftMeta}>
                                           {shift.startTime}–{shift.endTime}
+                                          {shift.isPast ? ' · Avsluttet' : ''}
                                         </span>
                                       </button>
                                     )
@@ -861,11 +869,24 @@ export default function AdminPage() {
                   id="edit-type"
                   value={editFormData.type}
                   onChange={(event) =>
-                    setEditFormData((prev) =>
-                      prev
-                        ? { ...prev, type: event.target.value as ShiftTypeKey }
-                        : prev
-                    )
+                    setEditFormData((prev) => {
+                      if (!prev) {
+                        return prev
+                      }
+
+                      const nextType = event.target.value as ShiftTypeKey
+                      if (prev.type === nextType) {
+                        return prev
+                      }
+
+                      const defaults = DEFAULT_SHIFT_TIMES[nextType]
+                      return {
+                        ...prev,
+                        type: nextType,
+                        startTime: defaults.start,
+                        endTime: defaults.end,
+                      }
+                    })
                   }
                   required
                   disabled={updatingShift}
@@ -1030,9 +1051,22 @@ export default function AdminPage() {
                 <select
                   id="type"
                   value={formData.type}
-                  onChange={(e) =>
-                    setFormData({ ...formData, type: e.target.value as ShiftTypeKey })
-                  }
+                  onChange={(event) => {
+                    const nextType = event.target.value as ShiftTypeKey
+                    setFormData((prev) => {
+                      if (prev.type === nextType) {
+                        return prev
+                      }
+
+                      const defaults = DEFAULT_SHIFT_TIMES[nextType]
+                      return {
+                        ...prev,
+                        type: nextType,
+                        startTime: defaults.start,
+                        endTime: defaults.end,
+                      }
+                    })
+                  }}
                   required
                   disabled={creating}
                 >

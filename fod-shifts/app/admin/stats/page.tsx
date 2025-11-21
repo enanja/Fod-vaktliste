@@ -31,7 +31,24 @@ interface StatsResponse {
   monthlyTotals: MonthlyTotal[]
   activeVolunteers: ActiveVolunteer[]
   underfilledShifts: UnderfilledShift[]
+  shiftSummaries: ShiftSummary[]
 }
+
+interface ShiftSummary {
+  shiftId: number
+  title: string
+  date: string
+  startTime: string
+  endTime: string
+  type: 'MORGEN' | 'KVELD'
+  maxVolunteers: number
+  confirmedCount: number
+  waitlistCount: number
+  vacancy: number
+  isPast: boolean
+}
+
+type TimeFilter = 'all' | 'future' | 'past'
 
 function toDateInputValue(date: Date) {
   const year = date.getFullYear()
@@ -61,8 +78,12 @@ export default function AdminStatsPage() {
     const now = new Date()
     return toDateInputValue(new Date(now.getFullYear(), now.getMonth(), 1))
   })
-  const [to, setTo] = useState(() => toDateInputValue(new Date()))
-  const [minHours, setMinHours] = useState(4)
+  const [to, setTo] = useState(() => {
+    const now = new Date()
+    return toDateInputValue(new Date(now.getFullYear(), now.getMonth() + 1, 0))
+  })
+  const [minHours, setMinHours] = useState(1)
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>('all')
   const [data, setData] = useState<StatsResponse | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -106,7 +127,75 @@ export default function AdminStatsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoading, user])
 
-  const underfilled = useMemo(() => data?.underfilledShifts ?? [], [data])
+  const toShiftStartTimestamp = (shift: ShiftSummary) => {
+    const base = new Date(shift.date)
+    const [hours, minutes] = shift.startTime.split(':').map((part) => parseInt(part, 10))
+    if (!Number.isNaN(hours)) {
+      base.setHours(hours, Number.isNaN(minutes) ? 0 : minutes, 0, 0)
+    }
+    return base.getTime()
+  }
+
+  const { withCapacity, noCapacity } = useMemo(() => {
+    if (!data) {
+      return { withCapacity: [] as ShiftSummary[], noCapacity: [] as ShiftSummary[] }
+    }
+
+    const filteredByTime = data.shiftSummaries.filter((shift) => {
+      if (timeFilter === 'future') {
+        return !shift.isPast
+      }
+      if (timeFilter === 'past') {
+        return shift.isPast
+      }
+      return true
+    })
+
+    const sorted = [...filteredByTime].sort((a, b) => toShiftStartTimestamp(a) - toShiftStartTimestamp(b))
+    const capacity = sorted.filter((shift) => shift.maxVolunteers > shift.confirmedCount)
+    const noCapacityList = sorted.filter((shift) => shift.maxVolunteers <= shift.confirmedCount)
+
+    return { withCapacity: capacity, noCapacity: noCapacityList }
+  }, [data, timeFilter])
+
+  const renderShiftTable = (shifts: ShiftSummary[]) => (
+    <div className={styles.tableWrapper}>
+      <table>
+        <thead>
+          <tr>
+            <th>Dato</th>
+            <th>Skift</th>
+            <th>Maks kapasitet</th>
+            <th>Påmeldte</th>
+            <th>Venteliste</th>
+            <th>Ledige plasser</th>
+          </tr>
+        </thead>
+        <tbody>
+          {shifts.map((shift) => {
+            const available = Math.max(shift.maxVolunteers - shift.confirmedCount, 0)
+            return (
+              <tr key={shift.shiftId}>
+                <td>
+                  {new Date(shift.date).toLocaleDateString('no-NO', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                  })}{' '}
+                  · {shift.startTime}–{shift.endTime}
+                </td>
+                <td>{shift.title}</td>
+                <td>{shift.maxVolunteers}</td>
+                <td>{shift.confirmedCount}</td>
+                <td>{shift.waitlistCount}</td>
+                <td>{available}</td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+  )
 
   if (isLoading || !user || user.role !== 'ADMIN') {
     return null
@@ -201,48 +290,52 @@ export default function AdminStatsPage() {
         </div>
       ) : null}
 
-      {underfilled.length > 0 ? (
-        <div className={styles.card}>
-          <h2>Skift med ledig kapasitet</h2>
-          <div className={styles.tableWrapper}>
-            <table>
-              <thead>
-                <tr>
-                  <th>Dato</th>
-                  <th>Skift</th>
-                  <th>Maks kapasitet</th>
-                  <th>Påmeldte</th>
-                  <th>Venteliste</th>
-                  <th>Ledige plasser</th>
-                </tr>
-              </thead>
-              <tbody>
-                {underfilled.map((shift) => (
-                  <tr key={shift.shiftId}>
-                    <td>
-                      {new Date(shift.date).toLocaleDateString('no-NO', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                      })}
-                    </td>
-                    <td>{shift.title}</td>
-                    <td>{shift.maxVolunteers}</td>
-                    <td>{shift.confirmedCount}</td>
-                    <td>{shift.waitlistCount}</td>
-                    <td>{shift.vacancy}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      <div className={styles.card}>
+        <div className={styles.cardHeaderRow}>
+          <h2>Skiftkapasitet</h2>
+          <div className={styles.timeFilters} role="group" aria-label="Filtrer på tidsperiode">
+            <button
+              type="button"
+              className={`${styles.timeFilterButton} ${timeFilter === 'all' ? styles.timeFilterButtonActive : ''}`}
+              onClick={() => setTimeFilter('all')}
+            >
+              Alle
+            </button>
+            <button
+              type="button"
+              className={`${styles.timeFilterButton} ${timeFilter === 'future' ? styles.timeFilterButtonActive : ''}`}
+              onClick={() => setTimeFilter('future')}
+            >
+              Fremtidige
+            </button>
+            <button
+              type="button"
+              className={`${styles.timeFilterButton} ${timeFilter === 'past' ? styles.timeFilterButtonActive : ''}`}
+              onClick={() => setTimeFilter('past')}
+            >
+              Historiske
+            </button>
           </div>
         </div>
-      ) : (
-        <div className={styles.card}>
-          <h2>Skift med ledig kapasitet</h2>
-          <p className={styles.emptyState}>Ingen skift med ledige plasser i perioden.</p>
-        </div>
-      )}
+
+        <section className={styles.capacitySection}>
+          <h3>Skift med ledig kapasitet</h3>
+          {withCapacity.length > 0 ? (
+            renderShiftTable(withCapacity)
+          ) : (
+            <p className={styles.emptyState}>Ingen skift med ledige plasser i perioden.</p>
+          )}
+        </section>
+
+        <section className={styles.capacitySection}>
+          <h3>Skift uten ledig kapasitet</h3>
+          {noCapacity.length > 0 ? (
+            renderShiftTable(noCapacity)
+          ) : (
+            <p className={styles.emptyState}>Ingen fulle skift i perioden.</p>
+          )}
+        </section>
+      </div>
     </div>
   )
 }

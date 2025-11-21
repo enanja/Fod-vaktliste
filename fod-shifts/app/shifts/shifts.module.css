@@ -185,6 +185,11 @@
   font-weight: 500;
 }
 
+.past {
+  color: #4a5568 !important;
+  font-weight: 500;
+}
+
 .button {
   width: 100%;
   padding: 12px;
@@ -261,6 +266,19 @@
   background: #fefcbf;
   color: #744210;
   border: 1px solid #f6e05e;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  margin-top: 12px;
+}
+
+.pastShiftNotice {
+  width: 100%;
+  padding: 12px;
+  background: #e2e8f0;
+  color: #4a5568;
+  border: 1px solid #cbd5e0;
   border-radius: 6px;
   font-size: 14px;
   font-weight: 600;
@@ -520,6 +538,11 @@
   color: #2b6cb0;
 }
 
+.calendarShiftPast {
+  background: #e2e8f0;
+  color: #4a5568;
+}
+
 .calendarShiftEmpty {
   background: #edf2f7;
   color: #718096;
@@ -581,6 +604,11 @@
 .legendMine {
   background: #bee3f8;
   color: #2b6cb0;
+}
+
+.legendPast {
+  background: #e2e8f0;
+  color: #4a5568;
 }
 
 .calendarHint {

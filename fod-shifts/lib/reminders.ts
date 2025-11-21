@@ -6,7 +6,6 @@ import { sendVolunteerReminderEmail } from './email'
 
 const DEFAULT_WINDOW_MINUTES = 24 * 60
 const FETCH_RANGE_MINUTES = DEFAULT_WINDOW_MINUTES * 2
-const REMINDER_TOLERANCE_MINUTES = 30
 
 export interface ReminderResult {
   sent: number
@@ -29,18 +28,24 @@ export async function sendUpcomingShiftReminders(
   windowMinutes = DEFAULT_WINDOW_MINUTES
 ): Promise<ReminderResult> {
   const now = new Date()
+  const effectiveWindow = Math.max(windowMinutes, 0)
+  const lookupWindow = Math.max(effectiveWindow, FETCH_RANGE_MINUTES)
 
   const signups = await prisma.signup.findMany({
     where: {
       status: SignupStatus.CONFIRMED,
       reminderSentAt: null,
-      shift: buildDateFilter(now, FETCH_RANGE_MINUTES),
+      shift: buildDateFilter(now, lookupWindow),
     },
     include: {
       shift: true,
       user: true,
     },
   })
+
+  console.log(
+    `[reminders] Evaluating ${signups.length} bekreftede påmeldinger (vindu=${effectiveWindow} minutter)`
+  )
 
   let sent = 0
   let skipped = 0
@@ -52,14 +57,15 @@ export async function sendUpcomingShiftReminders(
       startTime: signup.shift.startTime,
     })
 
-    const minutesUntilShift = Math.round((shiftStart.getTime() - now.getTime()) / 60000)
+    const msUntilShift = shiftStart.getTime() - now.getTime()
 
-    if (minutesUntilShift < 0) {
+    // Påminnelser sendes for skift som starter i intervallet [nå, nå + windowMinutes].
+    if (msUntilShift < 0) {
       skipped += 1
       continue
     }
 
-    if (Math.abs(minutesUntilShift - windowMinutes) > REMINDER_TOLERANCE_MINUTES) {
+    if (msUntilShift > effectiveWindow * 60 * 1000) {
       skipped += 1
       continue
     }
@@ -86,6 +92,10 @@ export async function sendUpcomingShiftReminders(
       failures.push({ signupId: signup.id, reason: (error as Error).message })
     }
   }
+
+  console.log(
+    `[reminders] Ferdig: sendte ${sent}, hoppet over ${skipped}, feil ${failures.length}`
+  )
 
   return { sent, skipped, failures }
 }

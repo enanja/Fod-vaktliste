@@ -12,7 +12,7 @@ import {
   sendVolunteerCancellationEmail,
   sendVolunteerAddedByAdminEmail,
 } from '@/lib/email'
-import { promoteNextWaitlistedVolunteer, getShiftStartDate } from '@/lib/signups'
+import { promoteNextWaitlistedVolunteer, getShiftStartDate, isShiftInPast } from '@/lib/signups'
 import { SignupStatus } from '@prisma/client'
 
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000
@@ -140,11 +140,18 @@ export async function POST(request: Request) {
         select: {
           id: true,
           maxVolunteers: true,
+          date: true,
+          startTime: true,
+          endTime: true,
         },
       })
 
       if (!shift) {
         throw new Error('SHIFT_NOT_FOUND')
+      }
+
+      if (!isAdmin && isShiftInPast(shift)) {
+        throw new Error('SHIFT_IN_PAST')
       }
 
       const currentHeadcount = await tx.signup.count({
@@ -268,6 +275,11 @@ export async function POST(request: Request) {
           return NextResponse.json(
             { error: 'Skiftet er fullt. Du kan sette deg på ventelisten.' },
             { status: 409 }
+          )
+        case 'SHIFT_IN_PAST':
+          return NextResponse.json(
+            { error: 'Skiftet er allerede gjennomført.' },
+            { status: 400 }
           )
         case 'ALREADY_SIGNED':
           return NextResponse.json(

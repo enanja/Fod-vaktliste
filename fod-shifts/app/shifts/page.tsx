@@ -8,6 +8,9 @@ import styles from './shifts.module.css'
 
 type ShiftTypeKey = 'MORGEN' | 'KVELD'
 type ViewMode = 'calendar' | 'list'
+                <span className={`${styles.legendItem} ${styles.legendPast}`}>
+                  Avsluttet
+                </span>
 
 const SHIFT_TYPES: ShiftTypeKey[] = ['MORGEN', 'KVELD']
 const SHIFT_TYPE_LABELS: Record<ShiftTypeKey, string> = {
@@ -51,6 +54,7 @@ interface Shift {
       email: string
     }
   }>
+  isPast: boolean
 }
 
 export default function ShiftsPage() {
@@ -194,6 +198,10 @@ export default function ShiftsPage() {
   }
 
   const openSignupModal = (shift: Shift) => {
+    if (shift.isPast) {
+      alert('Dette skiftet er allerede gjennomført.')
+      return
+    }
     closeDetailModal()
     setSignupModal({ show: true, shift })
     setComment('')
@@ -211,6 +219,11 @@ export default function ShiftsPage() {
 
     if (userIsBlocked) {
       setError('Du har ikke lenger tilgang til å melde deg på skift.')
+      return
+    }
+
+    if (signupModal.shift.isPast) {
+      setError('Du kan ikke melde deg på et skift som allerede er gjennomført.')
       return
     }
 
@@ -246,6 +259,11 @@ export default function ShiftsPage() {
   const handleJoinWaitlist = async (shift: Shift) => {
     if (userIsBlocked) {
       alert('Du har ikke lenger tilgang til å stå på venteliste.')
+      return
+    }
+
+    if (shift.isPast) {
+      alert('Dette skiftet er allerede gjennomført.')
       return
     }
 
@@ -449,9 +467,12 @@ export default function ShiftsPage() {
                                 const isFull = shift.signupCount >= shift.maxVolunteers
                                 const isSigned = isUserSignedUp(shift)
                                 const isWaitlisted = isUserWaitlisted(shift)
+                                const isPast = shift.isPast
                                 const classNames = [styles.calendarShift]
 
-                                if (isWaitlisted) {
+                                if (isPast) {
+                                  classNames.push(styles.calendarShiftPast)
+                                } else if (isWaitlisted) {
                                   classNames.push(styles.calendarShiftWaitlisted)
                                 } else if (isSigned) {
                                   classNames.push(styles.calendarShiftMine)
@@ -460,6 +481,16 @@ export default function ShiftsPage() {
                                 } else {
                                   classNames.push(styles.calendarShiftAvailable)
                                 }
+
+                                const statusLabel = isPast
+                                  ? ' · Avsluttet'
+                                  : isSigned
+                                    ? ' · Påmeldt'
+                                    : isWaitlisted
+                                      ? ' · Venteliste'
+                                      : isFull
+                                        ? ' · Fullt'
+                                        : ' · Ledig'
 
                                 return (
                                   <button
@@ -477,13 +508,7 @@ export default function ShiftsPage() {
                                     </span>
                                     <span className={styles.shiftMeta}>
                                       {shift.startTime}–{shift.endTime}
-                                      {isSigned
-                                        ? ' · Påmeldt'
-                                        : isWaitlisted
-                                          ? ' · Venteliste'
-                                          : isFull
-                                            ? ' · Fullt'
-                                            : ' · Ledig'}
+                                      {statusLabel}
                                     </span>
                                   </button>
                                 )
@@ -520,6 +545,12 @@ export default function ShiftsPage() {
                 const isFull = shift.signupCount >= shift.maxVolunteers
                 const isSignedUp = isUserSignedUp(shift)
                 const isWaitlisted = isUserWaitlisted(shift)
+                const isPast = shift.isPast
+                const capacityClass = isPast
+                  ? styles.past
+                  : isFull
+                    ? styles.full
+                    : styles.available
 
                 return (
                   <div key={shift.id} className={styles.card}>
@@ -535,9 +566,9 @@ export default function ShiftsPage() {
                     <div className={styles.details}>
                       <p>📅 {capitalise(formatDateLong(shift.date))}</p>
                       <p>🕐 {shift.startTime} - {shift.endTime}</p>
-                      <p className={isFull ? styles.full : styles.available}>
+                      <p className={capacityClass}>
                         👥 {shift.signupCount} / {shift.maxVolunteers} påmeldt
-                        {isFull && ' (FULLT)'}
+                        {isFull ? ' (FULLT)' : isPast ? ' (AVSLUTTET)' : ''}
                       </p>
                       <p>
                         ⏳ Venteliste: {shift.waitlistCount}
@@ -558,6 +589,10 @@ export default function ShiftsPage() {
                           {waitlistBusy === shift.id ? 'Fjerner...' : 'Fjern meg fra ventelisten'}
                         </button>
                       </>
+                    ) : isPast ? (
+                      <div className={styles.pastShiftNotice}>
+                        Skiftet er allerede gjennomført.
+                      </div>
                     ) : isFull ? (
                       <button
                         className={styles.buttonSecondary}
@@ -608,6 +643,12 @@ export default function ShiftsPage() {
               <p className={styles.notes}>{detailModal.shift.notes}</p>
             ) : null}
 
+            {detailModal.shift.isPast ? (
+              <div className={styles.pastShiftNotice}>
+                Skiftet er allerede gjennomført. Påmelding er stengt.
+              </div>
+            ) : null}
+
             {isUserSignedUp(detailModal.shift) ? (
               <div className={styles.signedUp}>✓ Du er påmeldt</div>
             ) : null}
@@ -625,7 +666,8 @@ export default function ShiftsPage() {
                 Lukk
               </button>
               {!isUserSignedUp(detailModal.shift) && !isUserWaitlisted(detailModal.shift) &&
-              detailModal.shift.signupCount < detailModal.shift.maxVolunteers ? (
+              detailModal.shift.signupCount < detailModal.shift.maxVolunteers &&
+              !detailModal.shift.isPast ? (
                 <button
                   className={styles.button}
                   onClick={() => openSignupModal(detailModal.shift!)}
@@ -636,7 +678,8 @@ export default function ShiftsPage() {
 
               {!isUserSignedUp(detailModal.shift) &&
               detailModal.shift.signupCount >= detailModal.shift.maxVolunteers &&
-              !isUserWaitlisted(detailModal.shift) ? (
+              !isUserWaitlisted(detailModal.shift) &&
+              !detailModal.shift.isPast ? (
                 <button
                   className={styles.button}
                   onClick={() => handleJoinWaitlist(detailModal.shift!)}
