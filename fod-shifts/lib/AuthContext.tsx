@@ -7,6 +7,10 @@ interface User {
   name: string
   email: string
   role: 'ADMIN' | 'FRIVILLIG'
+  status?: 'active' | 'blocked'
+  isBlocked?: boolean
+  blockedAt?: string | null
+  blockedReason?: string | null
 }
 
 interface AuthContextType {

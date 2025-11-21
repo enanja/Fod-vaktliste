@@ -36,6 +36,10 @@ export default function LoginPage() {
         <h1>Logg inn</h1>
         <p className={styles.subtitle}>FOD Frivillig Skift</p>
         
+        <Link href="/apply" className={styles.secondaryButton}>
+          Søk om å bli frivillig
+        </Link>
+
         {error && <div className={styles.error}>{error}</div>}
         
         <form onSubmit={handleSubmit} className={styles.form}>

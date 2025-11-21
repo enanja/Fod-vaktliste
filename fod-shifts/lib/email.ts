@@ -351,6 +351,40 @@ export async function sendVolunteerAddedByAdminEmail(data: VolunteerAddedByAdmin
     to: data.volunteerEmail,
     subject: `Du er satt opp på skift: ${data.shiftTitle}`,
     html: `
+
+    type VolunteerInviteEmailData = {
+      to: string
+      applicantName: string
+      inviteUrl: string
+      expiresAt: Date
+    }
+
+    export async function sendVolunteerInviteEmail(data: VolunteerInviteEmailData) {
+      console.log('📧 === EPOST TIL SØKER (invitasjon) ===')
+      console.log('Til:', data.to)
+      console.log('Lenke:', data.inviteUrl)
+      console.log('Gyldig til:', data.expiresAt.toISOString())
+      console.log('========================================')
+
+      if (!isEmailEnabled) {
+        console.log('ℹ️  Ekte e-post er deaktivert. Over sendtes lenken i loggen.')
+        return
+      }
+
+      await sendEmail({
+        to: data.to,
+        subject: 'Du er godkjent som frivillig hos FOD',
+        html: `
+          <p>Hei ${data.applicantName},</p>
+          <p>Hurra! Søknaden din om å bli frivillig hos FOD er godkjent.</p>
+          <p>Fullfør registreringen ved å trykke på lenken under og opprette en konto:</p>
+          <p><a href="${data.inviteUrl}" target="_blank" rel="noopener noreferrer">Opprett konto</a></p>
+          <p>Lenken er gyldig til <strong>${data.expiresAt.toLocaleDateString('no-NO')}</strong>.</p>
+          <p>Vi gleder oss til å ha deg med på laget!</p>
+          <br />
+          <p>Vennlig hilsen<br />FOD Frivillig System</p>
+        `,
+        text: `Hei ${data.applicantName},
       <p>Hei ${data.volunteerName},</p>
       <p>En administrator har lagt deg til på skiftet <strong>${data.shiftTitle}</strong>.</p>
       <p><strong>Dato:</strong> ${formatShiftDate(data.shiftDate)}</p>
@@ -361,6 +395,38 @@ export async function sendVolunteerAddedByAdminEmail(data: VolunteerAddedByAdmin
       <p>Vennlig hilsen<br />FOD Frivillig System</p>
     `,
     text: `Hei ${data.volunteerName},
+      })
+    }
+
+    type VolunteerApplicationRejectedEmailData = {
+      to: string
+      applicantName: string
+    }
+
+    export async function sendVolunteerApplicationRejectedEmail(
+      data: VolunteerApplicationRejectedEmailData
+    ) {
+      console.log('📧 === EPOST TIL SØKER (avslag) ===')
+      console.log('Til:', data.to)
+      console.log('========================================')
+
+      if (!isEmailEnabled) {
+        console.log('ℹ️  Ekte e-post er deaktivert. Ingen e-post sendt.')
+        return
+      }
+
+      await sendEmail({
+        to: data.to,
+        subject: 'Søknad om å bli frivillig hos FOD',
+        html: `
+          <p>Hei ${data.applicantName},</p>
+          <p>Takk for at du søkte om å bli frivillig hos FOD.</p>
+          <p>Denne gangen har vi dessverre ikke mulighet til å ta deg inn, men vi setter stor pris på engasjementet ditt.</p>
+          <p>Du er velkommen til å søke igjen senere.</p>
+          <br />
+          <p>Vennlig hilsen<br />FOD Frivillig System</p>
+        `,
+        text: `Hei ${data.applicantName},
 
 En administrator har lagt deg til på skiftet "${data.shiftTitle}".
 
@@ -368,6 +434,8 @@ Dato: ${formatShiftDate(data.shiftDate)}
 Tid: ${data.shiftStart} – ${data.shiftEnd}
 ${data.notes ? `Notater: ${data.notes}
 ` : ''}
+      })
+    }
 Gi beskjed dersom tidspunktet ikke passer.
 
 Vennlig hilsen

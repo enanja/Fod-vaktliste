@@ -16,6 +16,13 @@ export async function POST(request: Request) {
       )
     }
 
+    if (session.isBlocked || session.status === 'blocked') {
+      return NextResponse.json(
+        { error: 'Du har ikke lenger tilgang til ventelisten.' },
+        { status: 403 }
+      )
+    }
+
     const { shiftId, comment } = await request.json()
     const shiftIdNumber = typeof shiftId === 'number' ? shiftId : parseInt(shiftId, 10)
 

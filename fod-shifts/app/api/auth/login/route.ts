@@ -4,6 +4,21 @@ import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcrypt'
 import { getSession } from '@/lib/session'
 
+type UserWithAuthFields = {
+  id: number
+  name: string
+  email: string
+  hashedPassword: string
+  role: 'ADMIN' | 'FRIVILLIG'
+  status: string | null
+  isBlocked: boolean
+  blockedAt: Date | null
+  blockedReason: string | null
+  createdAt: Date
+}
+
+const prismaClient = prisma as any
+
 export async function POST(request: Request) {
   try {
     const { email, password } = await request.json()
@@ -17,9 +32,21 @@ export async function POST(request: Request) {
     }
 
     // Finn brukeren
-    const user = await prisma.user.findUnique({
+    const user = (await prismaClient.user.findUnique({
       where: { email },
-    })
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        hashedPassword: true,
+        role: true,
+        status: true,
+        isBlocked: true,
+        blockedAt: true,
+        blockedReason: true,
+        createdAt: true,
+      },
+    })) as UserWithAuthFields | null
 
     if (!user) {
       return NextResponse.json(
@@ -38,12 +65,21 @@ export async function POST(request: Request) {
       )
     }
 
+    if (user.isBlocked || user.status === 'blocked') {
+      return NextResponse.json(
+        { error: 'Kontoen din er blokkert. Ta kontakt med FOD for hjelp.' },
+        { status: 403 }
+      )
+    }
+
     // Opprett session
     const session = await getSession()
     session.userId = user.id
     session.email = user.email
     session.name = user.name
     session.role = user.role as 'ADMIN' | 'FRIVILLIG'
+    session.status = user.isBlocked ? 'blocked' : (user.status as 'active' | 'blocked') ?? 'active'
+    session.isBlocked = Boolean(user.isBlocked)
     session.isLoggedIn = true
     await session.save()
 
@@ -54,6 +90,10 @@ export async function POST(request: Request) {
         name: user.name,
         email: user.email,
         role: user.role,
+        status: user.isBlocked ? 'blocked' : user.status,
+        isBlocked: Boolean(user.isBlocked),
+        blockedAt: user.blockedAt,
+        blockedReason: user.blockedReason,
       },
     })
   } catch (error) {

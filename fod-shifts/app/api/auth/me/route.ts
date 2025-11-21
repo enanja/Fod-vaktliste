@@ -16,6 +16,8 @@ export async function GET() {
         name: session.name,
         email: session.email,
         role: session.role,
+        status: session.status,
+        isBlocked: session.isBlocked,
       },
     })
   } catch (error) {

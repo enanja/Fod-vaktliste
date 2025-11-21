@@ -6,6 +6,8 @@ export interface SessionData {
   email: string
   name: string
   role: 'ADMIN' | 'FRIVILLIG'
+  status: 'active' | 'blocked'
+  isBlocked: boolean
   isLoggedIn: boolean
 }
 
@@ -14,6 +16,8 @@ export const defaultSession: SessionData = {
   email: '',
   name: '',
   role: 'FRIVILLIG',
+  status: 'active',
+  isBlocked: false,
   isLoggedIn: false,
 }
 

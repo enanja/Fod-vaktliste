@@ -75,6 +75,7 @@ export default function ShiftsPage() {
     const now = new Date()
     return new Date(now.getFullYear(), now.getMonth(), 1)
   })
+  const userIsBlocked = Boolean(user?.isBlocked || user?.status === 'blocked')
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -208,6 +209,11 @@ export default function ShiftsPage() {
   const handleSignup = async () => {
     if (!signupModal.shift) return
 
+    if (userIsBlocked) {
+      setError('Du har ikke lenger tilgang til å melde deg på skift.')
+      return
+    }
+
     setSigningUp(true)
     setError('')
 
@@ -238,6 +244,11 @@ export default function ShiftsPage() {
   }
 
   const handleJoinWaitlist = async (shift: Shift) => {
+    if (userIsBlocked) {
+      alert('Du har ikke lenger tilgang til å stå på venteliste.')
+      return
+    }
+
     setWaitlistBusy(shift.id)
     const shouldCloseDetail = detailModal.shift?.id === shift.id
 
@@ -305,6 +316,25 @@ export default function ShiftsPage() {
 
   if (isLoading || !user) {
     return <div className={styles.container}>Laster...</div>
+  }
+
+  if (userIsBlocked) {
+    return (
+      <div className={styles.container}>
+        <header className={styles.header}>
+          <div>
+            <h1>Konto blokkert</h1>
+            <p>Ta kontakt med FOD for mer informasjon.</p>
+          </div>
+          <nav className={styles.nav}>
+            <button onClick={() => logout()}>Logg ut</button>
+          </nav>
+        </header>
+        <p className={styles.empty}>
+          Du kan ikke melde deg på skift eller stå på venteliste mens kontoen din er blokkert.
+        </p>
+      </div>
+    )
   }
 
   return (
@@ -393,6 +423,9 @@ export default function ShiftsPage() {
 
                     const dateKey = toDateKey(day)
                     const dayShifts = shiftsByDate.get(dateKey)
+                    const hasShifts =
+                      dayShifts !== undefined &&
+                      SHIFT_TYPES.some((shiftType) => (dayShifts[shiftType]?.length ?? 0) > 0)
 
                     return (
                       <div key={dateKey} className={styles.calendarCell}>
@@ -403,76 +436,78 @@ export default function ShiftsPage() {
                           </span>
                         </div>
 
-                        <div className={styles.calendarCellShifts}>
-                          {SHIFT_TYPES.map((shiftType) => {
-                            const shiftGroup = dayShifts?.[shiftType] ?? []
+                        {hasShifts ? (
+                          <div className={styles.calendarCellShifts}>
+                            {SHIFT_TYPES.map((shiftType) => {
+                              const shiftGroup = dayShifts?.[shiftType] ?? []
 
-                            if (shiftGroup.length === 0) {
-                              return null
-                            }
+                              if (shiftGroup.length === 0) {
+                                return null
+                              }
 
-                            const totalShifts = shiftGroup.length
-                            const availableShifts = shiftGroup.filter(
-                              (item) => item.signupCount < item.maxVolunteers
-                            ).length
-                            const summaryText = `${totalShifts} skift · ${availableShifts} ledig${availableShifts === 1 ? '' : 'e'}`
+                              const totalShifts = shiftGroup.length
+                              const availableShifts = shiftGroup.filter(
+                                (item) => item.signupCount < item.maxVolunteers
+                              ).length
+                              const summaryText = `${totalShifts} skift · ${availableShifts} ledig${availableShifts === 1 ? '' : 'e'}`
 
-                            return (
-                              <div key={shiftType} className={styles.shiftGroup}>
-                                <div className={styles.shiftGroupHeader}>
-                                  <span>{SHIFT_TYPE_LABELS[shiftType]}</span>
-                                  <span className={styles.shiftGroupSummary}>{summaryText}</span>
-                                </div>
-                                <div className={styles.calendarShiftList}>
-                                  // Render every overlapping shift as a compact badge so even busy slots stay readable.
-                                  {shiftGroup.map((shift) => {
-                                    const isFull = shift.signupCount >= shift.maxVolunteers
-                                    const isSigned = isUserSignedUp(shift)
-                                    const isWaitlisted = isUserWaitlisted(shift)
-                                    const classNames = [styles.calendarShift]
+                              return (
+                                <div key={shiftType} className={styles.shiftGroup}>
+                                  <div className={styles.shiftGroupHeader}>
+                                    <span>{SHIFT_TYPE_LABELS[shiftType]}</span>
+                                    <span className={styles.shiftGroupSummary}>{summaryText}</span>
+                                  </div>
+                                  <div className={styles.calendarShiftList}>
+                                    {/* Render every overlapping shift as a compact badge so even busy slots stay readable. */}
+                                    {shiftGroup.map((shift) => {
+                                      const isFull = shift.signupCount >= shift.maxVolunteers
+                                      const isSigned = isUserSignedUp(shift)
+                                      const isWaitlisted = isUserWaitlisted(shift)
+                                      const classNames = [styles.calendarShift]
 
-                                    if (isWaitlisted) {
-                                      classNames.push(styles.calendarShiftWaitlisted)
-                                    } else if (isSigned) {
-                                      classNames.push(styles.calendarShiftMine)
-                                    } else if (isFull) {
-                                      classNames.push(styles.calendarShiftFull)
-                                    } else {
-                                      classNames.push(styles.calendarShiftAvailable)
-                                    }
+                                      if (isWaitlisted) {
+                                        classNames.push(styles.calendarShiftWaitlisted)
+                                      } else if (isSigned) {
+                                        classNames.push(styles.calendarShiftMine)
+                                      } else if (isFull) {
+                                        classNames.push(styles.calendarShiftFull)
+                                      } else {
+                                        classNames.push(styles.calendarShiftAvailable)
+                                      }
 
-                                    return (
-                                      <button
-                                        key={shift.id}
-                                        type="button"
-                                        className={classNames.join(' ')}
-                                        onClick={() => openShiftDetails(shift)}
-                                        title={`${shift.title} · ${shift.startTime}–${shift.endTime} · ${shift.signupCount}/${shift.maxVolunteers} påmeldt`}
-                                      >
-                                        <span className={styles.shiftRow}>
-                                          <span className={styles.shiftTitle}>{shift.title}</span>
-                                          <span className={styles.shiftCount}>
-                                            {shift.signupCount}/{shift.maxVolunteers}
+                                      return (
+                                        <button
+                                          key={shift.id}
+                                          type="button"
+                                          className={classNames.join(' ')}
+                                          onClick={() => openShiftDetails(shift)}
+                                          title={`${shift.title} · ${shift.startTime}–${shift.endTime} · ${shift.signupCount}/${shift.maxVolunteers} påmeldt`}
+                                        >
+                                          <span className={styles.shiftRow}>
+                                            <span className={styles.shiftTitle}>{shift.title}</span>
+                                            <span className={styles.shiftCount}>
+                                              {shift.signupCount}/{shift.maxVolunteers}
+                                            </span>
                                           </span>
-                                        </span>
-                                        <span className={styles.shiftMeta}>
-                                          {shift.startTime}–{shift.endTime}
-                                          {isSigned
-                                            ? ' · Påmeldt'
-                                            : isWaitlisted
-                                              ? ' · Venteliste'
-                                              : isFull
-                                                ? ' · Fullt'
-                                                : ' · Ledig'}
-                                        </span>
-                                      </button>
-                                    )
-                                  })}
+                                          <span className={styles.shiftMeta}>
+                                            {shift.startTime}–{shift.endTime}
+                                            {isSigned
+                                              ? ' · Påmeldt'
+                                              : isWaitlisted
+                                                ? ' · Venteliste'
+                                                : isFull
+                                                  ? ' · Fullt'
+                                                  : ' · Ledig'}
+                                          </span>
+                                        </button>
+                                      )
+                                    })}
+                                  </div>
                                 </div>
-                              </div>
-                            )
-                          })}
-                        </div>
+                              )
+                            })}
+                          </div>
+                        ) : null}
                       </div>
                     )
                   })}

@@ -34,6 +34,9 @@ model User {
   hashedPassword String
   role      Role     @default(FRIVILLIG)
   status    String   @default("active")
+  isBlocked Boolean  @default(false)
+  blockedAt DateTime?
+  blockedReason String?
   createdAt DateTime @default(now())
   
   signups   Signup[]

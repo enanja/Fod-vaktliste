@@ -173,7 +173,9 @@ export async function promoteNextWaitlistedVolunteer(
     return null
   }
 
-  const entry = shift.waitlistEntries[0]
+  const entry = shift.waitlistEntries.find(
+    (candidate: any) => !candidate.user?.isBlocked && candidate.user?.status !== 'blocked'
+  )
 
   if (!entry) {
     return null

@@ -549,6 +549,18 @@ export default function AdminPage() {
           </button>
           <button
             className={styles.buttonSecondary}
+            onClick={() => router.push('/admin/volunteers')}
+          >
+            Frivillige
+          </button>
+          <button
+            className={styles.buttonSecondary}
+            onClick={() => router.push('/admin/applications')}
+          >
+            Søknader
+          </button>
+          <button
+            className={styles.buttonSecondary}
             onClick={() => router.push('/admin/stats')}
           >
             Statistikk
@@ -645,6 +657,9 @@ export default function AdminPage() {
 
                     const dateKey = toDateKey(day)
                     const dayShifts = shiftsByDate.get(dateKey)
+                    const hasShifts =
+                      dayShifts !== undefined &&
+                      SHIFT_TYPES.some((shiftType) => (dayShifts[shiftType]?.length ?? 0) > 0)
 
                     return (
                       <div key={dateKey} className={styles.calendarCell}>
@@ -659,14 +674,13 @@ export default function AdminPage() {
                             const shiftGroup = dayShifts?.[shiftType] ?? []
 
                             if (shiftGroup.length === 0) {
-                              return (
+                              return hasShifts ? null : (
                                 <div
                                   key={shiftType}
                                   className={`${styles.shiftGroup} ${styles.shiftGroupEmpty}`}
                                 >
                                   <div className={styles.shiftGroupHeader}>
                                     <span>{SHIFT_TYPE_LABELS[shiftType]}</span>
-                                    <span className={styles.shiftGroupSummary}>Ingen skift</span>
                                   </div>
                                   <div className={styles.calendarShiftPlaceholder}>Ingen skift planlagt</div>
                                 </div>
@@ -686,6 +700,7 @@ export default function AdminPage() {
                                   <span className={styles.shiftGroupSummary}>{summaryText}</span>
                                 </div>
                                 <div className={styles.calendarShiftList}>
+                                  {/* Render every overlapping admin shift as a compact badge for quick scanning. */}
                                   {shiftGroup.map((shift) => {
                                     const isFull = shift.signupCount >= shift.maxVolunteers
                                     const classNames = [styles.calendarShift]

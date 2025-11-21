@@ -15,6 +15,7 @@ import { promoteNextWaitlistedVolunteer, getShiftStartDate } from '@/lib/signups
 import { SignupStatus } from '@prisma/client'
 
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000
+const prismaClient = prisma as any
 
 type SignupWithShiftAndUser = Prisma.SignupGetPayload<{
   include: {
@@ -38,6 +39,13 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: 'Du må være logget inn for å melde deg på' },
         { status: 401 }
+      )
+    }
+
+    if (session.isBlocked || session.status === 'blocked') {
+      return NextResponse.json(
+        { error: 'Du har ikke lenger tilgang til å melde deg på skift.' },
+        { status: 403 }
       )
     }
 
@@ -67,7 +75,7 @@ export async function POST(request: Request) {
     const isAdmin = session.role === 'ADMIN'
 
     let targetUserId = session.userId
-    let overrideUser: { id: number } | null = null
+    let overrideUser: { id: number; isBlocked: boolean; status: string | null } | null = null
 
     if (overrideUserId || userEmail) {
       if (!isAdmin) {
@@ -89,10 +97,22 @@ export async function POST(request: Request) {
           )
         }
 
-        overrideUser = await prisma.user.findUnique({ where: { id: parsedUserId } })
+        overrideUser = await prismaClient.user.findUnique({
+          where: { id: parsedUserId },
+          select: {
+            id: true,
+            isBlocked: true,
+            status: true,
+          },
+        })
       } else if (typeof userEmail === 'string') {
-        overrideUser = await prisma.user.findUnique({
+        overrideUser = await prismaClient.user.findUnique({
           where: { email: userEmail.trim().toLowerCase() },
+          select: {
+            id: true,
+            isBlocked: true,
+            status: true,
+          },
         })
       }
 
@@ -100,6 +120,13 @@ export async function POST(request: Request) {
         return NextResponse.json(
           { error: 'Fant ingen frivillig med denne informasjonen' },
           { status: 404 }
+        )
+      }
+
+      if (overrideUser.isBlocked || overrideUser.status === 'blocked') {
+        return NextResponse.json(
+          { error: 'Denne frivillige er blokkert og kan ikke meldes på.' },
+          { status: 403 }
         )
       }
 
