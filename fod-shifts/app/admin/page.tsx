@@ -3,7 +3,7 @@
 
 import { useAuth } from '@/lib/AuthContext'
 import { useRouter } from 'next/navigation'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import styles from './admin.module.css'
 
 type ShiftTypeKey = 'MORGEN' | 'KVELD'
@@ -91,6 +91,7 @@ export default function AdminPage() {
   const [detailNotice, setDetailNotice] = useState<
     { type: 'success' | 'error'; text: string } | null
   >(null)
+  const [detailFocus, setDetailFocus] = useState<'signups' | 'waitlist' | null>(null)
 
   const [formData, setFormData] = useState<FormState>(
     () => ({
@@ -221,6 +222,9 @@ export default function AdminPage() {
 
   const toDateInputValue = (isoDate: string) => (isoDate ? isoDate.slice(0, 10) : '')
 
+  const signupsSectionRef = useRef<HTMLDivElement | null>(null)
+  const waitlistSectionRef = useRef<HTMLDivElement | null>(null)
+
   useEffect(() => {
     if (selectedShift) {
       setEditFormData({
@@ -241,13 +245,30 @@ export default function AdminPage() {
     }
   }, [selectedShift])
 
-  const openAdminShiftDetails = (shift: Shift) => {
+  useEffect(() => {
+    if (!selectedShift || !detailFocus) {
+      return
+    }
+
+    const target = detailFocus === 'signups' ? signupsSectionRef.current : waitlistSectionRef.current
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+
+    const timer = window.setTimeout(() => setDetailFocus(null), 1200)
+
+    return () => window.clearTimeout(timer)
+  }, [selectedShift, detailFocus])
+
+  const openAdminShiftDetails = (shift: Shift, focus: 'signups' | 'waitlist' | null = null) => {
     setDetailNotice(null)
+    setDetailFocus(focus)
     setSelectedShift(shift)
   }
 
   const closeShiftDetail = () => {
     setSelectedShift(null)
+    setDetailFocus(null)
   }
 
   const handleUpdateShift = async (event: React.FormEvent) => {
@@ -325,82 +346,92 @@ export default function AdminPage() {
 
   const renderSignupTable = (shift: Shift) => (
     <div className={styles.volunteersTable}>
-      <h4>Påmeldte</h4>
-      {shift.signups.length > 0 ? (
-        <table>
-          <thead>
-            <tr>
-              <th>Navn</th>
-              <th>E-post</th>
-              <th>Kommentar</th>
-              <th style={{ width: '120px' }}>Handling</th>
-            </tr>
-          </thead>
-          <tbody>
-            {shift.signups.map((signup) => (
-              <tr key={signup.id}>
-                <td>{signup.user.name}</td>
-                <td>{signup.user.email}</td>
-                <td>{signup.comment || '-'}</td>
-                <td>
-                  <button
-                    className={styles.tableActionButton}
-                    onClick={() => handleRemoveSignup(signup.id)}
-                    disabled={removingSignupId === signup.id}
-                  >
-                    {removingSignupId === signup.id ? 'Fjerner…' : 'Fjern'}
-                  </button>
-                </td>
+      <div
+        ref={signupsSectionRef}
+        className={`${styles.detailSection} ${detailFocus === 'signups' ? styles.focusHighlight : ''}`}
+      >
+        <h4>Påmeldte</h4>
+        {shift.signups.length > 0 ? (
+          <table>
+            <thead>
+              <tr>
+                <th>Navn</th>
+                <th>E-post</th>
+                <th>Kommentar</th>
+                <th style={{ width: '120px' }}>Handling</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      ) : (
-        <p className={styles.noSignups}>Ingen påmeldte.</p>
-      )}
+            </thead>
+            <tbody>
+              {shift.signups.map((signup) => (
+                <tr key={signup.id}>
+                  <td>{signup.user.name}</td>
+                  <td>{signup.user.email}</td>
+                  <td>{signup.comment || '-'}</td>
+                  <td>
+                    <button
+                      className={styles.tableActionButton}
+                      onClick={() => handleRemoveSignup(signup.id)}
+                      disabled={removingSignupId === signup.id}
+                    >
+                      {removingSignupId === signup.id ? 'Fjerner…' : 'Fjern'}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <p className={styles.noSignups}>Ingen påmeldte.</p>
+        )}
+      </div>
 
-      <h4>Venteliste ({shift.waitlistCount})</h4>
-      {shift.waitlist.length > 0 ? (
-        <table>
-          <thead>
-            <tr>
-              <th>Navn</th>
-              <th>E-post</th>
-              <th>Kommentar</th>
-              <th>Registrert</th>
-              <th style={{ width: '120px' }}>Handling</th>
-            </tr>
-          </thead>
-          <tbody>
-            {shift.waitlist.map((entry) => (
-              <tr key={entry.id}>
-                <td>{entry.user.name}</td>
-                <td>{entry.user.email}</td>
-                <td>{entry.comment || '-'}</td>
-                <td>
-                  {new Date(entry.createdAt).toLocaleString('no-NO', {
-                    day: '2-digit',
-                    month: '2-digit',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
-                </td>
-                <td>
-                  <button
-                    className={styles.tableActionButton}
-                    onClick={() => handleRemoveWaitlistEntry(entry.id)}
-                    disabled={removingWaitlistId === entry.id}
-                  >
-                    {removingWaitlistId === entry.id ? 'Fjerner…' : 'Fjern'}
-                  </button>
-                </td>
+      <div
+        ref={waitlistSectionRef}
+        className={`${styles.detailSection} ${detailFocus === 'waitlist' ? styles.focusHighlight : ''}`}
+      >
+        <h4>Venteliste ({shift.waitlistCount})</h4>
+        {shift.waitlist.length > 0 ? (
+          <table>
+            <thead>
+              <tr>
+                <th>Navn</th>
+                <th>E-post</th>
+                <th>Kommentar</th>
+                <th>Registrert</th>
+                <th style={{ width: '120px' }}>Handling</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      ) : (
-        <p className={styles.noSignups}>Ingen på venteliste.</p>
-      )}
+            </thead>
+            <tbody>
+              {shift.waitlist.map((entry) => (
+                <tr key={entry.id}>
+                  <td>{entry.user.name}</td>
+                  <td>{entry.user.email}</td>
+                  <td>{entry.comment || '-'}</td>
+                  <td>
+                    {new Date(entry.createdAt).toLocaleString('no-NO', {
+                      day: '2-digit',
+                      month: '2-digit',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </td>
+                  <td>
+                    <button
+                      className={styles.tableActionButton}
+                      onClick={() => handleRemoveWaitlistEntry(entry.id)}
+                      disabled={removingWaitlistId === entry.id}
+                    >
+                      {removingWaitlistId === entry.id ? 'Fjerner…' : 'Fjern'}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <p className={styles.noSignups}>Ingen på venteliste.</p>
+        )}
+      </div>
     </div>
   )
 
@@ -791,12 +822,25 @@ export default function AdminPage() {
                         {shift.notes && <p className={styles.notes}>{shift.notes}</p>}
                       </div>
                       <div className={styles.shiftStats}>
-                        <span className={isFull ? styles.full : styles.available}>
+                        <button
+                          type="button"
+                          className={`${styles.shiftStatsButton} ${
+                            isFull ? styles.full : styles.available
+                          }`}
+                          onClick={() => openAdminShiftDetails(shift, 'signups')}
+                          title="Vis påmeldte frivillige"
+                        >
                           {shift.signupCount} / {shift.maxVolunteers} påmeldt
-                        </span>
-                        <span className={styles.waitlistStat}>
+                        </button>
+                        <button
+                          type="button"
+                          className={`${styles.shiftStatsButton} ${styles.shiftStatsWaitlist}`}
+                          onClick={() => openAdminShiftDetails(shift, 'waitlist')}
+                          title="Vis ventelisten"
+                          disabled={shift.waitlistCount === 0}
+                        >
                           Venteliste: {shift.waitlistCount}
-                        </span>
+                        </button>
                       </div>
                     </div>
                     <div className={styles.cardActions}>

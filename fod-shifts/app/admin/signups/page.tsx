@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import styles from '../admin.module.css'
 
 type FilterOption = 'upcoming' | 'all' | 'past'
+type ViewOption = 'signups' | 'waitlist'
 
 type SignupRow = {
   id: number
@@ -32,6 +33,11 @@ const FILTERS: Array<{ value: FilterOption; label: string }> = [
   { value: 'past', label: 'Historiske' },
 ]
 
+const VIEWS: Array<{ value: ViewOption; label: string }> = [
+  { value: 'signups', label: 'Påmeldte' },
+  { value: 'waitlist', label: 'Venteliste' },
+]
+
 const SHIFT_TYPE_LABELS: Record<'MORGEN' | 'KVELD', string> = {
   MORGEN: 'Morgenskift',
   KVELD: 'Kveldsskift',
@@ -45,23 +51,25 @@ export default function AdminSignupsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [filter, setFilter] = useState<FilterOption>('upcoming')
+  const [view, setView] = useState<ViewOption>('signups')
 
-  const fetchSignups = useCallback(async (selectedFilter: FilterOption) => {
+  const fetchEntries = useCallback(async (selectedFilter: FilterOption, selectedView: ViewOption) => {
     setLoading(true)
     setError('')
 
     try {
-      const query = new URLSearchParams({ filter: selectedFilter })
+      const query = new URLSearchParams({ filter: selectedFilter, view: selectedView })
       const response = await fetch(`/api/admin/signups?${query.toString()}`)
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || 'Kunne ikke hente påmeldinger.')
+        throw new Error(data.error || 'Kunne ikke hente listen.')
       }
 
-      setRows(data.signups as SignupRow[])
+      const key = selectedView === 'waitlist' ? 'waitlist' : 'signups'
+      setRows((data[key] as SignupRow[]) ?? [])
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Kunne ikke hente påmeldinger.')
+      setError(err instanceof Error ? err.message : 'Kunne ikke hente listen.')
       setRows([])
     } finally {
       setLoading(false)
@@ -76,11 +84,21 @@ export default function AdminSignupsPage() {
 
   useEffect(() => {
     if (user?.role === 'ADMIN') {
-      fetchSignups(filter)
+      fetchEntries(filter, view)
     }
-  }, [user, filter, fetchSignups])
+  }, [user, filter, view, fetchEntries])
 
   const hasRows = rows.length > 0
+
+  const pageDescription = view === 'signups'
+    ? 'Oversikt over alle frivillige som er påmeldt skift'
+    : 'Oversikt over alle frivillige som står på venteliste'
+
+  const loadingText = view === 'signups' ? 'Laster påmeldinger...' : 'Laster venteliste...'
+
+  const emptyText = view === 'signups'
+    ? 'Ingen påmeldinger funnet for valgt filter.'
+    : 'Ingen ventelisteoppføringer funnet for valgt filter.'
 
   const filterButtons = useMemo(
     () =>
@@ -99,6 +117,23 @@ export default function AdminSignupsPage() {
     [filter, loading]
   )
 
+  const viewButtons = useMemo(
+    () =>
+      VIEWS.map(({ value, label }) => (
+        <button
+          key={value}
+          type="button"
+          className={`${styles.viewButton} ${view === value ? styles.viewButtonActive : ''}`}
+          onClick={() => setView(value)}
+          aria-pressed={view === value}
+          disabled={loading && view === value}
+        >
+          {label}
+        </button>
+      )),
+    [view, loading]
+  )
+
   if (isLoading || !user) {
     return <div className={styles.container}>Laster...</div>
   }
@@ -112,7 +147,7 @@ export default function AdminSignupsPage() {
       <header className={styles.header}>
         <div>
           <h1>Skiftpåmeldinger</h1>
-          <p>Oversikt over alle frivillige som er påmeldt skift</p>
+          <p>{pageDescription}</p>
         </div>
         <div className={styles.nav}>
           <Link href="/admin" className={styles.buttonSecondary}>
@@ -120,7 +155,7 @@ export default function AdminSignupsPage() {
           </Link>
           <button
             className={styles.buttonSecondary}
-            onClick={() => fetchSignups(filter)}
+            onClick={() => fetchEntries(filter, view)}
             disabled={loading}
           >
             Oppdater liste
@@ -129,16 +164,22 @@ export default function AdminSignupsPage() {
       </header>
 
       <div className={styles.filtersRow}>
-        <span className={styles.filterLabel}>Vis</span>
-        <div className={styles.viewSwitch}>{filterButtons}</div>
+        <div className={styles.filterGroup}>
+          <span className={styles.filterLabel}>Oversikt</span>
+          <div className={styles.viewSwitch}>{viewButtons}</div>
+        </div>
+        <div className={styles.filterGroup}>
+          <span className={styles.filterLabel}>Vis</span>
+          <div className={styles.viewSwitch}>{filterButtons}</div>
+        </div>
       </div>
 
       {error ? <div className={styles.error}>{error}</div> : null}
 
       {loading ? (
-        <p>Laster påmeldinger...</p>
+        <p>{loadingText}</p>
       ) : !hasRows ? (
-        <p className={styles.empty}>Ingen påmeldinger funnet for valgt filter.</p>
+        <p className={styles.empty}>{emptyText}</p>
       ) : (
         <div className={styles.volunteersTable}>
           <table>
